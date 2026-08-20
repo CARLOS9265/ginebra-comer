@@ -5,6 +5,7 @@ import { signOut } from "@/app/login/actions";
 const NAV_LINKS = [
   { href: "/", label: "Inicio" },
   { href: "/lotes", label: "Lotes de compra" },
+  { href: "/calendario", label: "Programación" },
   { href: "/proveedores", label: "Proveedores" },
 ];
 
