@@ -92,6 +92,33 @@ proveedor en esta etapa (la humedad sí importa para la venta a PY, más
 adelante). Tabla nueva: `lab_analyses` (migración 0010). Registrar el
 resultado avanza el estado del lote a `en_laboratorio`.
 
+También **Valorización definitiva y liquidación** — la fórmula real (confirmada
+con el usuario): se reusa `lib/contract.ts` (`estimateLot()`), con la ley REAL
+de laboratorio en vez de la estimada, y el mismo precio de metales que se usó
+en el pago provisional (no uno nuevo del día de la liquidación). El resultado
+es literalmente "valor de venta a PY − costos hasta la venta − margen objetivo
+(`ganancia_objetivo_usd`, hoy USD 400/TM)" — eso es lo que se le paga al
+proveedor. El saldo pendiente resta el precio provisional **completo** ya
+pagado (no un adelanto parcial). Un solo registro por lote (persistido, para
+auditoría), con vista previa antes de guardar. Tabla nueva: `lot_settlements`
+(migración 0011). Roles distintos a las demás secciones: compras, contabilidad,
+gerencia, administrador (no operaciones/calidad — es cierre financiero).
+Registrar la liquidación avanza el estado del lote a `valorizado`.
+
+Ojo con dos cosas que se descubrieron construyendo esto:
+- Las columnas `estimated_price_au/ag/pb` de `purchase_lots` existían desde la
+  migración 0004 pero **nunca se llenaban** — `LotForm` ahora sí las guarda
+  (precio de oro/plata/plomo del momento de la carga). Los lotes viejos no
+  tienen este dato salvo que se los edite y regrabe una vez (rellena con el
+  precio en vivo del momento de la edición, no el original — más o menos
+  razonable si no cambió mucho el precio).
+- Los botones "Eliminar" de esta pantalla (transporte, pesaje, molino,
+  conminución, big bag, laboratorio, liquidación) **tragaban los errores en
+  silencio** — si el borrado fallaba (ej. borrar un análisis de laboratorio
+  que una liquidación todavía referencia), no pasaba nada visible y parecía
+  que el botón no hacía nada. Ya está resuelto: ahora se muestra el motivo
+  debajo del botón.
+
 **Programación / calendario** (`/calendario`) — grilla mensual, dos tipos de
 programación de volquete: *compra* (llegada de mina, celeste) y *despacho* (venta a
 PY en Lima, violeta), con estado (programado/confirmado/completado/cancelado) y
@@ -114,16 +141,17 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0010`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0011`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
   generador de código de lote (`next_lot_seq`), RLS por rol en todo.
 - `0002_lots_config.sql` — `contract_settings` (bandas del contrato con PY: Ag/Au/Pb,
-  merma, costos, % adelantos) + columnas de aprobación en purchase_lots. **Ojo: esta
-  tabla y la lógica de aprobación por precio máximo quedaron sin usar** después de
-  simplificar el formulario de lote — están reservadas para la etapa de valorización
-  final (venta a PY), no para la compra inicial.
+  merma, costos, % adelantos) + columnas de aprobación en purchase_lots. La tabla
+  `contract_settings` ahora sí se usa (valorización definitiva, punto 7 de "qué
+  falta"). Las columnas de aprobación por precio máximo en purchase_lots
+  (`requires_approval`, `approved_at`) siguen sin usar — quedaron de una versión
+  anterior del formulario de lote, antes de simplificarlo.
 - `0003_truck_schedule.sql` — calendario de volquetes.
 - `0004_lot_edit_support.sql` — columnas de precios de metal usados en la proyección.
 - `0005_lot_updated_by.sql` — columna `updated_by` en purchase_lots.
@@ -145,11 +173,18 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
 - `0010_lab_analyses.sql` — tabla nueva `lab_analyses` (ley real del lote:
   Au/Ag/Pb + As/Sb/S/humedad), con su política de DELETE incluida desde el
   arranque (aprendiendo del patrón de 0007-0009).
+- `0011_lot_settlements.sql` — tabla nueva `lot_settlements` (valorización
+  definitiva + liquidación al proveedor). También con DELETE desde el
+  arranque. Roles de escritura distintos al resto: compras/contabilidad/
+  gerencia/administrador (no operaciones/calidad).
 
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
-ChatGPT — **no está conectada a ninguna pantalla todavía**; es para la etapa
-posterior (venta a PY), no para la compra al proveedor.
+ChatGPT. **Ya está conectada** — se usa en `/lotes/[id]` para la valorización
+definitiva (punto 7). Las bandas de `contract_settings` son las mismas que
+definen cuánto se le paga al proveedor: no hay una fórmula separada — el
+precio al proveedor sale de "lo que PY pagaría con la ley real, menos costos,
+menos el margen objetivo" (confirmado con el usuario).
 
 ## Qué falta (siguiendo el pedido original de 24 puntos)
 
@@ -166,14 +201,18 @@ posterior (venta a PY), no para la compra al proveedor.
    `GIN-<LOTE>-BBnn` y comparación contra lo declarado por el molino.
 6. ~~Muestreo y laboratorio~~ — **hecho** (`/lotes/[id]`, ver arriba). Sin
    tolerancia entre dos laboratorios (no aplica todavía, según el usuario).
-7. Valorización definitiva de compra — usar ley real + `contract_settings` /
-   `lib/contract.ts` (ya construidos, sin conectar) para la segunda fijación /
-   liquidación del proveedor. **Regla de negocio del usuario para tener en
-   cuenta acá:** cada ley de laboratorio debería ser mayor o igual a la ley
-   provisional estimada — si no, es una señal de que revisar (ya implementado
-   como aviso en la sección de Laboratorio, ver arriba).
-8. Adelanto y liquidación del proveedor — separar precio final, adelanto entregado,
-   saldo, facturas y notas de crédito/débito.
+7. ~~Valorización definitiva de compra~~ — **hecho** (`/lotes/[id]`, ver
+   arriba). `contract_settings` / `lib/contract.ts` **sí es** para esto (no
+   solo para la venta a PY — confirmado con el usuario, corrigiendo lo que
+   decía antes esta nota).
+8. ~~Adelanto y liquidación del proveedor~~ — **hecho en su mayor parte**,
+   junto con el punto 7 (mismo registro `lot_settlements`: precio final,
+   saldo pendiente, N° de factura final, N° de nota de crédito/débito).
+   Falta: llevar cuenta de si el saldo ya se pagó de verdad (hoy es un
+   cálculo, no un estado de "pagado/pendiente"), y separar el "adelanto"
+   real (`advance_pct` del lote, campo que existe pero no se usa en ningún
+   cálculo todavía) si en algún momento se empieza a pagar por partes en vez
+   del 100% del provisional de una vez.
 9. Traslado al almacén de Ginebra + cierre de compra.
 
 **Fase 2 (venta a PY):** inventario de big bags, diseño de blending, lote de venta,
