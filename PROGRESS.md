@@ -68,6 +68,18 @@ una salida o un pesaje oficial **avanza automáticamente** `purchase_lots.status
 (creado → en_transito → pesado), nunca hacia atrás. `src/lib/lot-status.ts` tiene
 el orden y las etiquetas de estado, compartido entre la lista y el detalle.
 
+También en `/lotes/[id]`: **recepción en molino** (supervisor, ubicación,
+incidentes — un solo registro por lote) y **conminución + big bags** (un solo
+registro de conminución por lote — así lo confirmó el usuario, se muele en una
+sola tanda — con big bags cargados uno por uno a medida que salen del molino,
+~1.5 TM cada uno con margen de fallo; se pesan individualmente, no se reparte un
+total). Código de big bag automático `GIN-<CÓDIGO_LOTE>-BBnn` (ej.
+`GIN-BUS-26-05-BB01`), secuencial por lote. Muestra el total cargado en big bags
+vs. lo que declaró el molino (`processed_tons`) con una diferencia resaltada en
+rojo si supera 50 kg — es un chequeo de control, no bloquea nada. Registrar la
+recepción o la conminución también avanza el estado del lote (recibido_molino,
+conminuido).
+
 **Programación / calendario** (`/calendario`) — grilla mensual, dos tipos de
 programación de volquete: *compra* (llegada de mina, celeste) y *despacho* (venta a
 PY en Lima, violeta), con estado (programado/confirmado/completado/cancelado) y
@@ -90,7 +102,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0008`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0009`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
@@ -114,6 +126,10 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
   era este bug — ya está resuelto.**
 - `0008_transport_weighing_delete_policies.sql` — mismo fix que 0007, esta vez
   para `transport_events` y `weighings` (se detectó de nuevo al construir esa UI).
+- `0009_mill_delete_policies.sql` — mismo fix otra vez, para `mill_receptions`,
+  `comminutions` y `big_bags`. **Patrón para recordar: cualquier tabla nueva que
+  se le agregue UI necesita que se revise si tiene política de DELETE — el
+  loop genérico de 0001_init.sql nunca las creó para ninguna tabla operativa.**
 
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
@@ -130,9 +146,9 @@ posterior (venta a PY), no para la compra al proveedor.
    formulario con un campo de motivo, pero no hay todavía un flujo que pida
    segunda guía/factura — si hace falta algo más formal que "cargar un
    pesaje más con motivo", avisar.
-4. Recepción en molino — tabla `mill_receptions` existe, sin UI.
-5. Conminución — tabla `comminutions` existe, sin UI. Acá se generan los **big bags**
-   (tabla `big_bags` ya existe) con código `GIN-<LOTE>-BBnn`.
+4. ~~Recepción en molino~~ — **hecho** (`/lotes/[id]`, ver arriba).
+5. ~~Conminución~~ — **hecho** (`/lotes/[id]`, ver arriba). Big bags con código
+   `GIN-<LOTE>-BBnn` y comparación contra lo declarado por el molino.
 6. Muestreo y laboratorio — **no hay tabla todavía**. Acá es donde entra la ley
    REAL (Au/Ag/Pb/As/Sb/S/humedad), con tolerancia entre laboratorios.
 7. Valorización definitiva de compra — usar ley real + `contract_settings` /
