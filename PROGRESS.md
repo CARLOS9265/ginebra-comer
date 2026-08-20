@@ -80,6 +80,18 @@ rojo si supera 50 kg — es un chequeo de control, no bloquea nada. Registrar la
 recepción o la conminución también avanza el estado del lote (recibido_molino,
 conminuido).
 
+También **Laboratorio**: un solo resultado por lote (muestra compuesta de todo
+el lote, no por big bag — confirmado con el usuario). Un solo laboratorio por
+ahora, sin comparación entre dos laboratorios (si más adelante se manda la
+misma muestra a dos labs, hay que agregar esa lógica). Au/Ag/Pb del
+laboratorio se muestran junto a la ley estimada del lote, con un aviso (no
+bloqueo) si el resultado real da **menor** al estimado — regla de negocio del
+usuario: la ley real debería ser siempre mayor o igual a la que se usó para
+el pago provisional. As/Sb/S/humedad se registran pero no afectan el pago al
+proveedor en esta etapa (la humedad sí importa para la venta a PY, más
+adelante). Tabla nueva: `lab_analyses` (migración 0010). Registrar el
+resultado avanza el estado del lote a `en_laboratorio`.
+
 **Programación / calendario** (`/calendario`) — grilla mensual, dos tipos de
 programación de volquete: *compra* (llegada de mina, celeste) y *despacho* (venta a
 PY en Lima, violeta), con estado (programado/confirmado/completado/cancelado) y
@@ -102,7 +114,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0009`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0010`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
@@ -130,6 +142,9 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
   `comminutions` y `big_bags`. **Patrón para recordar: cualquier tabla nueva que
   se le agregue UI necesita que se revise si tiene política de DELETE — el
   loop genérico de 0001_init.sql nunca las creó para ninguna tabla operativa.**
+- `0010_lab_analyses.sql` — tabla nueva `lab_analyses` (ley real del lote:
+  Au/Ag/Pb + As/Sb/S/humedad), con su política de DELETE incluida desde el
+  arranque (aprendiendo del patrón de 0007-0009).
 
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
@@ -149,11 +164,14 @@ posterior (venta a PY), no para la compra al proveedor.
 4. ~~Recepción en molino~~ — **hecho** (`/lotes/[id]`, ver arriba).
 5. ~~Conminución~~ — **hecho** (`/lotes/[id]`, ver arriba). Big bags con código
    `GIN-<LOTE>-BBnn` y comparación contra lo declarado por el molino.
-6. Muestreo y laboratorio — **no hay tabla todavía**. Acá es donde entra la ley
-   REAL (Au/Ag/Pb/As/Sb/S/humedad), con tolerancia entre laboratorios.
+6. ~~Muestreo y laboratorio~~ — **hecho** (`/lotes/[id]`, ver arriba). Sin
+   tolerancia entre dos laboratorios (no aplica todavía, según el usuario).
 7. Valorización definitiva de compra — usar ley real + `contract_settings` /
    `lib/contract.ts` (ya construidos, sin conectar) para la segunda fijación /
-   liquidación del proveedor.
+   liquidación del proveedor. **Regla de negocio del usuario para tener en
+   cuenta acá:** cada ley de laboratorio debería ser mayor o igual a la ley
+   provisional estimada — si no, es una señal de que revisar (ya implementado
+   como aviso en la sección de Laboratorio, ver arriba).
 8. Adelanto y liquidación del proveedor — separar precio final, adelanto entregado,
    saldo, facturas y notas de crédito/débito.
 9. Traslado al almacén de Ginebra + cierre de compra.
