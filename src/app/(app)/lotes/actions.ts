@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
-import { canEstimate, estimateLot, type ContractSettings } from "@/lib/contract";
 
 export type LotFormState = { error?: string } | null;
 
@@ -21,32 +20,14 @@ function str(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
 
-function buildLotFields(formData: FormData, cfg: ContractSettings, profileId: string) {
+function buildLotFields(formData: FormData, profileId: string) {
   const tmh = num(formData, "estimated_weight_tmh");
   const precioProvisional = num(formData, "provisional_price_per_tmh");
 
-  const estimateInput = {
-    tmh: tmh ?? 0,
-    ag: num(formData, "estimated_ag") ?? 0,
-    au: num(formData, "estimated_au") ?? 0,
-    pb: num(formData, "estimated_pb") ?? 0,
-    humidity: num(formData, "estimated_humidity") ?? 0,
-    precioAg: num(formData, "precio_ag") ?? 0,
-    precioAu: num(formData, "precio_au") ?? 0,
-    precioPb: num(formData, "precio_pb") ?? 0,
-    precioProvisionalPorTonelada: precioProvisional ?? 0,
-  };
-
-  const estimate = canEstimate(estimateInput) ? estimateLot(estimateInput, cfg) : null;
-  const requiresApproval = estimate?.requiereAprobacion ?? false;
-  const approvalReason = str(formData, "approval_reason");
-
   const fields = {
     provider_id: str(formData, "provider_id") || null,
-    mine_name: str(formData, "mine_name") || null,
     concession: str(formData, "concession") || null,
     truck_plate: str(formData, "truck_plate") || null,
-    driver_name: str(formData, "driver_name") || null,
     carrier_name: str(formData, "carrier_name") || null,
     estimated_weight_tmh: tmh,
     reference_price_usd: num(formData, "reference_price_usd"),
@@ -54,22 +35,10 @@ function buildLotFields(formData: FormData, cfg: ContractSettings, profileId: st
     advance_pct: num(formData, "advance_pct"),
     initial_guide_number: str(formData, "initial_guide_number") || null,
     initial_invoice_number: str(formData, "initial_invoice_number") || null,
-    estimated_ag: estimateInput.ag || null,
-    estimated_au: estimateInput.au || null,
-    estimated_pb: estimateInput.pb || null,
-    estimated_humidity: estimateInput.humidity || null,
-    estimated_price_ag: estimateInput.precioAg || null,
-    estimated_price_au: estimateInput.precioAu || null,
-    estimated_price_pb: estimateInput.precioPb || null,
-    projected_py_value_per_tmh: estimate?.valorPYxTMH ?? null,
-    projected_max_price_per_tmh: estimate?.precioMaximoCompra ?? null,
-    projected_margin_per_tmh: estimate?.margenXTMH ?? null,
-    requires_approval: requiresApproval,
-    approval_reason: requiresApproval ? approvalReason : null,
     updated_by: profileId,
   };
 
-  return { tmh, precioProvisional, requiresApproval, approvalReason, fields };
+  return { tmh, precioProvisional, fields };
 }
 
 export async function createPurchaseLot(
@@ -86,24 +55,11 @@ export async function createPurchaseLot(
   const loadedAt = str(formData, "loaded_at");
 
   const supabase = await createClient();
-  const { data: cfg } = await supabase.from("contract_settings").select("*").eq("id", 1).single();
-  if (!cfg) return { error: "No se pudo leer la configuración del contrato." };
-
-  const { tmh, precioProvisional, requiresApproval, approvalReason, fields } = buildLotFields(
-    formData,
-    cfg as ContractSettings,
-    profile.id,
-  );
+  const { tmh, precioProvisional, fields } = buildLotFields(formData, profile.id);
 
   if (!providerId || !providerCode || !loadedAt || !tmh || precioProvisional == null) {
     return {
       error: "Completá proveedor, fecha/hora de carga, peso estimado y precio provisional.",
-    };
-  }
-  if (requiresApproval && !approvalReason) {
-    return {
-      error:
-        "El precio provisional supera el precio máximo recomendado. Explicá el motivo para poder registrar el lote (queda pendiente de aprobación de gerencia).",
     };
   }
 
@@ -171,24 +127,11 @@ export async function updatePurchaseLot(
   const loadedAt = str(formData, "loaded_at");
   const code = str(formData, "code").toUpperCase();
   const supabase = await createClient();
-  const { data: cfg } = await supabase.from("contract_settings").select("*").eq("id", 1).single();
-  if (!cfg) return { error: "No se pudo leer la configuración del contrato." };
-
-  const { tmh, precioProvisional, requiresApproval, approvalReason, fields } = buildLotFields(
-    formData,
-    cfg as ContractSettings,
-    profile.id,
-  );
+  const { tmh, precioProvisional, fields } = buildLotFields(formData, profile.id);
 
   if (!code || !fields.provider_id || !loadedAt || !tmh || precioProvisional == null) {
     return {
       error: "Completá código, proveedor, fecha/hora de carga, peso estimado y precio provisional.",
-    };
-  }
-  if (requiresApproval && !approvalReason) {
-    return {
-      error:
-        "El precio provisional supera el precio máximo recomendado. Explicá el motivo para poder guardar (queda pendiente de aprobación de gerencia).",
     };
   }
 

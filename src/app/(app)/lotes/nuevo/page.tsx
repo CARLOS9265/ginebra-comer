@@ -5,10 +5,7 @@ import { LotForm } from "../LotForm";
 export default async function NewLotPage() {
   const supabase = await createClient();
 
-  const [{ data: providers }, { data: cfg }] = await Promise.all([
-    supabase.from("providers").select("id, code, name").order("name"),
-    supabase.from("contract_settings").select("*").eq("id", 1).single(),
-  ]);
+  const { data: providers } = await supabase.from("providers").select("id, code, name").order("name");
 
   if (!providers || providers.length === 0) {
     return (
@@ -34,7 +31,7 @@ export default async function NewLotPage() {
       </p>
 
       <div className="mt-6">
-        <LotForm providers={providers} contractSettings={cfg} mode="create" />
+        <LotForm providers={providers} mode="create" />
       </div>
     </div>
   );
