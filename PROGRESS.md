@@ -1,0 +1,146 @@
+# Ginebra ERP — estado del proyecto
+
+Sistema de trazabilidad de mineral para Ginebra (Perú). Next.js 16 (App Router,
+Turbopack) + TypeScript + Tailwind + Supabase (Postgres, Auth, Storage, RLS).
+
+Repo: `C:\Users\Carlos\OneDrive\Desktop\FINANZAS\ginebra-erp` (git inicializado,
+commits incrementales con mensajes descriptivos — revisar `git log` para el detalle
+de cada paso).
+
+## Cómo levantarlo
+
+```bash
+cd ginebra-erp
+npm run dev                                   # servidor local, puerto 3000
+node --env-file=.env.local scripts/migrate.mjs  # aplicar migraciones nuevas (o: npm run db:migrate)
+```
+
+`.env.local` (gitignored) ya tiene `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, y `SUPABASE_DB_HOST/PORT/NAME/USER/PASSWORD`
+(conexión directa a Postgres, usada solo por los scripts de migración).
+**Nunca pedirle al usuario la contraseña de la base de datos por chat** — si hace
+falta, que la pegue directo en `.env.local` con un editor.
+
+Login de prueba (administrador): `carlombar65@gmail.com` / `Ginebra2026Admin!`.
+
+Proyecto Supabase: `ginebra-erp`, ref `bebaxicsoftxqnegwsuf`.
+
+## Qué hay construido y probado en el navegador
+
+**Auth y roles** — login/registro con email+contraseña. Cuentas nuevas quedan
+inactivas hasta que un administrador les asigna rol (tabla `profiles`, roles:
+operaciones, compras, calidad, comercial, contabilidad, gerencia, administrador).
+Primer admin se activó con `scripts/bootstrap-admin.mjs`. Middleware renombrado a
+`src/proxy.ts` (convención Next.js 16, ya no `middleware.ts`).
+
+**Proveedores** (`/proveedores`) — alta, edición, baja (bloqueada si el proveedor
+tiene lotes o programaciones asociadas).
+
+**Lotes de compra** (`/lotes`) — alta, edición, baja (solo si `status='creado'`).
+- Código automático `PROVEEDOR-AA-NN` (ej. `BUS-26-01`), editable a mano si hace falta.
+- Formulario (`LotForm.tsx`, compartido entre nuevo/editar) cubre **solo** transporte,
+  peso y negociación — sin mina de origen ni conductor (se sacaron a pedido del
+  usuario), sin ley de laboratorio (no existe a esta altura del proceso).
+- Transportista es un selector fijo (`src/lib/carriers.ts`): Jose Miguel Rodriguez /
+  Laurion Company — únicos dos transportistas reales del negocio.
+- Panel "Pago provisional sugerido": lee oro/plata **en vivo** (ver abajo) + plomo
+  cargado a mano, y con una **ley estimada** (Au g/t, Ag g/t, Pb % — no es de
+  laboratorio, es un supuesto para el pago inicial) calcula el prorrateo real que usa
+  el negocio: `precio_por_gramo × %pagable_inicial × ley` por metal, sumado da el
+  precio unitario USD/TMH, × TMH da el total. Fórmula verificada contra un ejemplo
+  real que dio el usuario (Au 4 g/t, Ag 900 g/t, Pb 0.5%, 35 TMH → coincide). Botón
+  "Usar sugerido" copia el precio unitario al campo de precio provisional.
+- La ley estimada y el % pagable inicial son totalmente editables por lote.
+
+**Programación / calendario** (`/calendario`) — grilla mensual, dos tipos de
+programación de volquete: *compra* (llegada de mina, celeste) y *despacho* (venta a
+PY en Lima, violeta), con estado (programado/confirmado/completado/cancelado) y
+borrado manual.
+
+**Precios internacionales** (`/precios`) — oro y plata se leen **en vivo** de
+inversoro.es (la fuente que pidió el usuario) en cada carga de página. Plomo se
+carga a mano (esa fuente no lo tiene). Guarda un snapshot diario en
+`daily_metal_prices` con un `% de referencia` configurable (default 40%).
+
+### Detalle técnico importante: precios en vivo
+
+`src/lib/live-metal-prices.ts` lee inversoro.es reproduciendo la llamada JSON que
+usa su propio widget (`/charts/data/<token>/?xignite_code=XAU|XAG&...`, token que se
+extrae de la página en cada llamada). **El `fetch()` nativo de Node es bloqueado por
+esa web (huella TLS de Cloudflare), pero `curl` no** — por eso el código hace
+`execFile("curl", ...)` en vez de usar `fetch()`. Funciona bien en Windows local
+(`curl.exe` está en System32). **Si el proyecto se despliega en un hosting sin curl
+disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay que
+revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
+navegador real, o mover este fetch a un cron/edge function con otro runtime.
+
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0006`)
+
+- `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
+  big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
+  generador de código de lote (`next_lot_seq`), RLS por rol en todo.
+- `0002_lots_config.sql` — `contract_settings` (bandas del contrato con PY: Ag/Au/Pb,
+  merma, costos, % adelantos) + columnas de aprobación en purchase_lots. **Ojo: esta
+  tabla y la lógica de aprobación por precio máximo quedaron sin usar** después de
+  simplificar el formulario de lote — están reservadas para la etapa de valorización
+  final (venta a PY), no para la compra inicial.
+- `0003_truck_schedule.sql` — calendario de volquetes.
+- `0004_lot_edit_support.sql` — columnas de precios de metal usados en la proyección.
+- `0005_lot_updated_by.sql` — columna `updated_by` en purchase_lots.
+- `0006_daily_metal_prices.sql` — precios diarios (oro/plata/plomo + % referencia).
+
+`src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
+(bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
+ChatGPT — **no está conectada a ninguna pantalla todavía**; es para la etapa
+posterior (venta a PY), no para la compra al proveedor.
+
+## Qué falta (siguiendo el pedido original de 24 puntos)
+
+**Resto de la Fase 1 (compra, secciones 3–13 del pedido original):**
+1. Control documental y precintos — la tabla `seals` existe pero la única UI es
+   escribir códigos como texto libre al crear el lote. Falta pantalla de estados
+   (disponible → colocado → verificado → abierto → anulado) y verificación antes de
+   salida del volquete.
+2. Seguimiento de transporte — tabla `transport_events` existe, sin UI.
+3. Pesaje oficial en Trujillo — tabla `weighings` existe, sin UI. Falta comparar
+   peso de guía vs. peso oficial y el flujo de regularización (segunda guía/factura).
+4. Recepción en molino — tabla `mill_receptions` existe, sin UI.
+5. Conminución — tabla `comminutions` existe, sin UI. Acá se generan los **big bags**
+   (tabla `big_bags` ya existe) con código `GIN-<LOTE>-BBnn`.
+6. Muestreo y laboratorio — **no hay tabla todavía**. Acá es donde entra la ley
+   REAL (Au/Ag/Pb/As/Sb/S/humedad), con tolerancia entre laboratorios.
+7. Valorización definitiva de compra — usar ley real + `contract_settings` /
+   `lib/contract.ts` (ya construidos, sin conectar) para la segunda fijación /
+   liquidación del proveedor.
+8. Adelanto y liquidación del proveedor — separar precio final, adelanto entregado,
+   saldo, facturas y notas de crédito/débito.
+9. Traslado al almacén de Ginebra + cierre de compra.
+
+**Fase 2 (venta a PY):** inventario de big bags, diseño de blending, lote de venta,
+despacho/recepción en PY, muestreo conjunto, liquidación provisional (90%) y final de
+PY, fijaciones de precio por metal, márgenes por lote de compra/venta.
+
+**Fase 3 (después, según lo acordado):** panel de control gerencial, asistente de
+IA, conexión a fuentes de precio pagas (LBMA/LME/Fastmarkets), integración con Nisira
+(mencionada por el usuario, sin detallar todavía qué es exactamente).
+
+**Pendiente transversal:** la bitácora de auditoría (`audit_log`) existe en la base
+pero nada escribe ahí todavía — el pedido original quería que toda edición quede
+registrada con usuario/fecha/valor anterior/valor nuevo/motivo.
+
+## Datos de prueba en la base
+
+Proveedores "BUSINESS DIRECTION" (BUS) y "GRUPO CONSTRUCTOR Y MULTISERVICIOS" (GRU),
+lotes `BUS-26-01` a `BUS-26-05` (y uno viejo `GIN-BUS-2026-0001` del formato de
+código anterior). El usuario pidió dejarlos como referencia — se pueden borrar a
+mano después desde `/lotes` o el panel de Supabase.
+
+## Notas de estilo de trabajo con el usuario
+
+- El usuario no sabe programar — explicar en criollo, sin jerga, y probar cada
+  cambio en el navegador antes de darlo por terminado (no alcanza con que compile).
+- Prefiere que se implemente y pruebe directamente, no que se le pregunte de más;
+  pero cuando una fórmula de negocio es ambigua, mejor preguntar con números
+  concretos que adivinar dos veces (pasó con el cálculo de referencia de precios).
+- Va probando la app en paralelo en su propia sesión — es normal encontrar datos
+  que cambiaron sin que este chat los haya tocado.
