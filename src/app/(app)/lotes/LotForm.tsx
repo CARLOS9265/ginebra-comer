@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { createPurchaseLot, updatePurchaseLot, type LotFormState } from "./actions";
 import { CARRIERS } from "@/lib/carriers";
 
@@ -21,16 +21,29 @@ export type LotInitialValues = {
   advance_pct: string;
 };
 
+export type ReferencePrices = {
+  gold: number | null;
+  silver: number | null;
+  lead: number | null;
+  referencePct: number;
+  isLive: boolean;
+};
+
+const fmtUSD0 = (n: number) =>
+  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
 export function LotForm({
   providers,
   mode,
   lotId,
   initialValues,
+  refPrices,
 }: {
   providers: Provider[];
   mode: "create" | "edit";
   lotId?: string;
   initialValues?: LotInitialValues;
+  refPrices?: ReferencePrices;
 }) {
   const boundAction =
     mode === "edit" && lotId ? updatePurchaseLot.bind(null, lotId) : createPurchaseLot;
@@ -38,9 +51,19 @@ export function LotForm({
 
   const [providerId, setProviderId] = useState(initialValues?.provider_id ?? providers[0]?.id ?? "");
   const providerCode = providers.find((p) => p.id === providerId)?.code ?? "";
+  const [tmh, setTmh] = useState(initialValues?.estimated_weight_tmh ?? "");
+
+  const reference = useMemo(() => {
+    const tmhNum = Number(tmh);
+    if (!refPrices || !tmhNum) return null;
+    const pct = refPrices.referencePct / 100;
+    const goldRef = refPrices.gold != null ? refPrices.gold * pct * tmhNum : null;
+    const silverRef = refPrices.silver != null ? refPrices.silver * pct * tmhNum : null;
+    return { goldRef, silverRef };
+  }, [refPrices, tmh]);
 
   return (
-    <div className="max-w-2xl">
+    <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
       <form action={action} className="space-y-6">
         <input type="hidden" name="provider_code" value={providerCode} />
 
@@ -104,7 +127,8 @@ export function LotForm({
                 type="number"
                 step="0.01"
                 required
-                defaultValue={initialValues?.estimated_weight_tmh}
+                value={tmh}
+                onChange={(e) => setTmh(e.target.value)}
                 className={inputClass}
               />
               <Hint>De la balanza de ejes.</Hint>
@@ -164,6 +188,48 @@ export function LotForm({
           {pending ? "Guardando..." : mode === "edit" ? "Guardar cambios" : "Registrar lote"}
         </button>
       </form>
+
+      <div className="lg:sticky lg:top-20 lg:self-start">
+        <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-200">Referencia de mercado</h2>
+            {refPrices?.isLive && (
+              <span className="flex items-center gap-1.5 text-xs text-teal-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-teal-400" /> En vivo
+              </span>
+            )}
+          </div>
+          {!refPrices || (refPrices.gold == null && refPrices.silver == null) ? (
+            <p className="text-sm text-slate-500">
+              No se pudo leer el precio internacional ahora mismo.
+            </p>
+          ) : (
+            <div className="space-y-3 text-sm">
+              <Row label="Oro (USD/oz)" value={refPrices.gold != null ? fmtUSD0(refPrices.gold) : "—"} />
+              <Row label="Plata (USD/oz)" value={refPrices.silver != null ? fmtUSD0(refPrices.silver) : "—"} />
+              {refPrices.lead != null && <Row label="Plomo (USD/TM)" value={fmtUSD0(refPrices.lead)} />}
+              <div className="border-t border-dashed border-slate-800 pt-3">
+                <p className="mb-2 text-xs text-slate-500">
+                  Referencia al {refPrices.referencePct}% del valor internacional × TMH cargado
+                  (no es la valorización final — eso se calcula con ley real tras la molienda).
+                </p>
+                {!tmh ? (
+                  <p className="text-xs text-slate-600">Cargá el peso (TMH) para ver el cálculo.</p>
+                ) : (
+                  <>
+                    {reference?.goldRef != null && (
+                      <Row label="Ref. por oro" value={fmtUSD0(reference.goldRef)} strong />
+                    )}
+                    {reference?.silverRef != null && (
+                      <Row label="Ref. por plata" value={fmtUSD0(reference.silverRef)} strong />
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -181,6 +247,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="mb-1.5 block text-xs font-medium text-slate-400">{children}</span>;
+}
+
+function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between">
+      <span className="text-slate-500">{label}</span>
+      <span className={`font-mono ${strong ? "text-base font-semibold text-teal-400" : "text-slate-200"}`}>
+        {value}
+      </span>
+    </div>
+  );
 }
 
 function Hint({ children }: { children: React.ReactNode }) {

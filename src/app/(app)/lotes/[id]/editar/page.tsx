@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { LotForm, type LotInitialValues } from "../../LotForm";
+import { getLiveGoldSilver } from "@/lib/live-metal-prices";
+import { LotForm, type LotInitialValues, type ReferencePrices } from "../../LotForm";
 
 function toLocalInput(iso: string): string {
   const d = new Date(iso);
@@ -17,9 +18,16 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: lot }, { data: providers }] = await Promise.all([
+  const [{ data: lot }, { data: providers }, { data: latestPrice }, live] = await Promise.all([
     supabase.from("purchase_lots").select("*").eq("id", id).maybeSingle(),
     supabase.from("providers").select("id, code, name").order("name"),
+    supabase
+      .from("daily_metal_prices")
+      .select("*")
+      .order("price_date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    getLiveGoldSilver(),
   ]);
 
   if (!lot) notFound();
@@ -39,6 +47,14 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
     advance_pct: s(lot.advance_pct),
   };
 
+  const refPrices: ReferencePrices = {
+    gold: live.gold ?? latestPrice?.gold_usd_oz ?? null,
+    silver: live.silver ?? latestPrice?.silver_usd_oz ?? null,
+    lead: latestPrice?.lead_usd_ton ?? null,
+    referencePct: latestPrice?.reference_pct ?? 40,
+    isLive: live.gold != null && live.silver != null,
+  };
+
   return (
     <div>
       <Link href="/lotes" className="text-sm text-slate-500 hover:text-slate-300">
@@ -49,7 +65,13 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
       </h1>
 
       <div className="mt-6">
-        <LotForm providers={providers ?? []} mode="edit" lotId={lot.id} initialValues={initialValues} />
+        <LotForm
+          providers={providers ?? []}
+          mode="edit"
+          lotId={lot.id}
+          initialValues={initialValues}
+          refPrices={refPrices}
+        />
       </div>
     </div>
   );

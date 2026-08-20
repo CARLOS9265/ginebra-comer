@@ -6,6 +6,7 @@ const NAV_LINKS = [
   { href: "/", label: "Inicio" },
   { href: "/lotes", label: "Lotes de compra" },
   { href: "/calendario", label: "Programación" },
+  { href: "/precios", label: "Precios" },
   { href: "/proveedores", label: "Proveedores" },
 ];
 

@@ -1,11 +1,21 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { LotForm } from "../LotForm";
+import { getLiveGoldSilver } from "@/lib/live-metal-prices";
+import { LotForm, type ReferencePrices } from "../LotForm";
 
 export default async function NewLotPage() {
   const supabase = await createClient();
 
-  const { data: providers } = await supabase.from("providers").select("id, code, name").order("name");
+  const [{ data: providers }, { data: latestPrice }, live] = await Promise.all([
+    supabase.from("providers").select("id, code, name").order("name"),
+    supabase
+      .from("daily_metal_prices")
+      .select("*")
+      .order("price_date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    getLiveGoldSilver(),
+  ]);
 
   if (!providers || providers.length === 0) {
     return (
@@ -19,6 +29,14 @@ export default async function NewLotPage() {
     );
   }
 
+  const refPrices: ReferencePrices = {
+    gold: live.gold ?? latestPrice?.gold_usd_oz ?? null,
+    silver: live.silver ?? latestPrice?.silver_usd_oz ?? null,
+    lead: latestPrice?.lead_usd_ton ?? null,
+    referencePct: latestPrice?.reference_pct ?? 40,
+    isLive: live.gold != null && live.silver != null,
+  };
+
   return (
     <div>
       <Link href="/lotes" className="text-sm text-slate-500 hover:text-slate-300">
@@ -31,7 +49,7 @@ export default async function NewLotPage() {
       </p>
 
       <div className="mt-6">
-        <LotForm providers={providers} mode="create" />
+        <LotForm providers={providers} mode="create" refPrices={refPrices} />
       </div>
     </div>
   );
