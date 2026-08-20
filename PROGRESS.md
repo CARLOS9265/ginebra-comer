@@ -52,6 +52,12 @@ tiene lotes o programaciones asociadas).
   "Usar sugerido" copia el precio unitario al campo de precio provisional.
 - La ley estimada y el % pagable inicial son totalmente editables por lote.
 
+**Precintos** (`/precintos`) — alta (asignado a un lote o "en stock"), y la
+cadena de estados completa: disponible → colocado → verificado → abierto (con
+motivo) / anulado (con motivo) en cualquier punto. Filtro por estado. Roles
+permitidos calcados de la política RLS de `seals` (operaciones, calidad,
+gerencia, administrador — **no** compras, a diferencia de lotes).
+
 **Programación / calendario** (`/calendario`) — grilla mensual, dos tipos de
 programación de volquete: *compra* (llegada de mina, celeste) y *despacho* (venta a
 PY en Lima, violeta), con estado (programado/confirmado/completado/cancelado) y
@@ -74,7 +80,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0006`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0007`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
@@ -88,6 +94,14 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
 - `0004_lot_edit_support.sql` — columnas de precios de metal usados en la proyección.
 - `0005_lot_updated_by.sql` — columna `updated_by` en purchase_lots.
 - `0006_daily_metal_prices.sql` — precios diarios (oro/plata/plomo + % referencia).
+- `0007_delete_policies.sql` — **fix de un bug preexistente**: a `providers`,
+  `purchase_lots` y `seals` les faltaba la política RLS de `DELETE`. Los botones
+  "Eliminar" de proveedores y lotes nunca daban error, pero tampoco borraban
+  nada — Postgres corría el `delete` y afectaba 0 filas en silencio, y la
+  pantalla se refrescaba como si hubiese funcionado. Se detectó al construir
+  la pantalla de precintos (mismo problema ahí) y se corrigió para las tres
+  tablas. **Si notaste que "Eliminar" en proveedores o lotes no hacía nada,
+  era este bug — ya está resuelto.**
 
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
@@ -97,10 +111,7 @@ posterior (venta a PY), no para la compra al proveedor.
 ## Qué falta (siguiendo el pedido original de 24 puntos)
 
 **Resto de la Fase 1 (compra, secciones 3–13 del pedido original):**
-1. Control documental y precintos — la tabla `seals` existe pero la única UI es
-   escribir códigos como texto libre al crear el lote. Falta pantalla de estados
-   (disponible → colocado → verificado → abierto → anulado) y verificación antes de
-   salida del volquete.
+1. ~~Control documental y precintos~~ — **hecho** (`/precintos`, ver arriba).
 2. Seguimiento de transporte — tabla `transport_events` existe, sin UI.
 3. Pesaje oficial en Trujillo — tabla `weighings` existe, sin UI. Falta comparar
    peso de guía vs. peso oficial y el flujo de regularización (segunda guía/factura).
