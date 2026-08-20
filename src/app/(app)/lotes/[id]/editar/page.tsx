@@ -26,6 +26,7 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
   if (!lot) notFound();
 
   const initialValues: LotInitialValues = {
+    code: lot.code,
     provider_id: lot.provider_id,
     mine_name: s(lot.mine_name),
     concession: s(lot.concession),

@@ -8,6 +8,7 @@ import { CARRIERS } from "@/lib/carriers";
 type Provider = { id: string; code: string; name: string };
 
 export type LotInitialValues = {
+  code: string;
   provider_id: string;
   mine_name: string;
   concession: string;
@@ -91,6 +92,14 @@ export function LotForm({
 
         <Section title="Datos del lote">
           <div className="grid grid-cols-2 gap-4">
+            {mode === "edit" && (
+              <TextField
+                label="Código del lote"
+                name="code"
+                defaultValue={initialValues?.code}
+                hint="Único. Formato sugerido: PROVEEDOR-AÑO-SECUENCIA, ej. BUS-26-01."
+              />
+            )}
             <label className="col-span-2 block">
               <FieldLabel>Proveedor</FieldLabel>
               <select
@@ -325,6 +334,7 @@ function TextField({
   value,
   defaultValue,
   onChange,
+  hint,
 }: {
   label: string;
   name: string;
@@ -334,6 +344,7 @@ function TextField({
   value?: string;
   defaultValue?: string;
   onChange?: (v: string) => void;
+  hint?: string;
 }) {
   return (
     <label className="block">
@@ -348,6 +359,7 @@ function TextField({
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         className={inputClass}
       />
+      {hint && <Hint>{hint}</Hint>}
     </label>
   );
 }

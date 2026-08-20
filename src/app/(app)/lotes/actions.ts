@@ -115,7 +115,7 @@ export async function createPurchaseLot(
   if (seqError || seq == null) {
     return { error: "No se pudo generar el código del lote. Probá de nuevo." };
   }
-  const code = `GIN-${providerCode}-${year}-${String(seq).padStart(4, "0")}`;
+  const code = `${providerCode}-${String(year).slice(-2)}-${String(seq).padStart(2, "0")}`;
 
   const { data: lot, error: insertError } = await supabase
     .from("purchase_lots")
@@ -169,6 +169,7 @@ export async function updatePurchaseLot(
   }
 
   const loadedAt = str(formData, "loaded_at");
+  const code = str(formData, "code").toUpperCase();
   const supabase = await createClient();
   const { data: cfg } = await supabase.from("contract_settings").select("*").eq("id", 1).single();
   if (!cfg) return { error: "No se pudo leer la configuración del contrato." };
@@ -179,9 +180,9 @@ export async function updatePurchaseLot(
     profile.id,
   );
 
-  if (!fields.provider_id || !loadedAt || !tmh || precioProvisional == null) {
+  if (!code || !fields.provider_id || !loadedAt || !tmh || precioProvisional == null) {
     return {
-      error: "Completá proveedor, fecha/hora de carga, peso estimado y precio provisional.",
+      error: "Completá código, proveedor, fecha/hora de carga, peso estimado y precio provisional.",
     };
   }
   if (requiresApproval && !approvalReason) {
@@ -193,12 +194,15 @@ export async function updatePurchaseLot(
 
   const { data: lot, error: updateError } = await supabase
     .from("purchase_lots")
-    .update({ ...fields, loaded_at: new Date(loadedAt).toISOString() })
+    .update({ ...fields, code, loaded_at: new Date(loadedAt).toISOString() })
     .eq("id", lotId)
     .select("code")
     .single();
 
   if (updateError || !lot) {
+    if (updateError?.code === "23505") {
+      return { error: `Ya existe otro lote con el código "${code}".` };
+    }
     return { error: `No se pudo guardar: ${updateError?.message ?? "error desconocido"}` };
   }
 
