@@ -58,6 +58,16 @@ motivo) / anulado (con motivo) en cualquier punto. Filtro por estado. Roles
 permitidos calcados de la política RLS de `seals` (operaciones, calidad,
 gerencia, administrador — **no** compras, a diferencia de lotes).
 
+**Detalle de lote / transporte / pesaje** (`/lotes/[id]`) — el código del lote en
+la lista ahora lleva acá en vez de a texto plano. Muestra precintos asignados
+(solo lectura, con link a `/precintos` para gestionarlos), eventos de transporte
+(salida, transportista, tarifa S/ por TMH, seguridad, incidentes) y pesajes
+(inicial/oficial/regularización, con cálculo automático de neto = bruto − tara si
+no se carga a mano, y una comparación automática oficial vs. inicial). Registrar
+una salida o un pesaje oficial **avanza automáticamente** `purchase_lots.status`
+(creado → en_transito → pesado), nunca hacia atrás. `src/lib/lot-status.ts` tiene
+el orden y las etiquetas de estado, compartido entre la lista y el detalle.
+
 **Programación / calendario** (`/calendario`) — grilla mensual, dos tipos de
 programación de volquete: *compra* (llegada de mina, celeste) y *despacho* (venta a
 PY en Lima, violeta), con estado (programado/confirmado/completado/cancelado) y
@@ -80,7 +90,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0007`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0008`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
@@ -102,6 +112,8 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
   la pantalla de precintos (mismo problema ahí) y se corrigió para las tres
   tablas. **Si notaste que "Eliminar" en proveedores o lotes no hacía nada,
   era este bug — ya está resuelto.**
+- `0008_transport_weighing_delete_policies.sql` — mismo fix que 0007, esta vez
+  para `transport_events` y `weighings` (se detectó de nuevo al construir esa UI).
 
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
@@ -112,9 +124,12 @@ posterior (venta a PY), no para la compra al proveedor.
 
 **Resto de la Fase 1 (compra, secciones 3–13 del pedido original):**
 1. ~~Control documental y precintos~~ — **hecho** (`/precintos`, ver arriba).
-2. Seguimiento de transporte — tabla `transport_events` existe, sin UI.
-3. Pesaje oficial en Trujillo — tabla `weighings` existe, sin UI. Falta comparar
-   peso de guía vs. peso oficial y el flujo de regularización (segunda guía/factura).
+2. ~~Seguimiento de transporte~~ — **hecho** (`/lotes/[id]`, ver arriba).
+3. ~~Pesaje oficial en Trujillo~~ — **hecho** (`/lotes/[id]`, comparación
+   guía vs. oficial incluida). El tipo "regularización" ya está en el
+   formulario con un campo de motivo, pero no hay todavía un flujo que pida
+   segunda guía/factura — si hace falta algo más formal que "cargar un
+   pesaje más con motivo", avisar.
 4. Recepción en molino — tabla `mill_receptions` existe, sin UI.
 5. Conminución — tabla `comminutions` existe, sin UI. Acá se generan los **big bags**
    (tabla `big_bags` ya existe) con código `GIN-<LOTE>-BBnn`.
