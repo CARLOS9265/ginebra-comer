@@ -37,6 +37,9 @@ export type LotEstimateInput = {
 export type LotEstimate = {
   agRecortado: boolean;
   auRecortado: boolean;
+  agPagablePct: number;
+  auPagablePct: number;
+  pbPagableFactor: number;
   valorPYxTMH: number;
   valorPYTotal: number;
   valorBrutoxTMH: number;
@@ -101,6 +104,9 @@ export function estimateLot(input: LotEstimateInput, cfg: ContractSettings): Lot
   return {
     agRecortado,
     auRecortado,
+    agPagablePct,
+    auPagablePct,
+    pbPagableFactor: pbPagablePct,
     valorPYxTMH,
     valorPYTotal: valorPYxTMH * tmh,
     valorBrutoxTMH,

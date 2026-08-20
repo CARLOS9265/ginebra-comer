@@ -38,6 +38,9 @@ function buildLotFields(formData: FormData, profileId: string) {
     estimated_au: num(formData, "estimated_au"),
     estimated_ag: num(formData, "estimated_ag"),
     estimated_pb: num(formData, "estimated_pb"),
+    estimated_price_au: num(formData, "estimated_price_au"),
+    estimated_price_ag: num(formData, "estimated_price_ag"),
+    estimated_price_pb: num(formData, "estimated_price_pb"),
     updated_by: profileId,
   };
 

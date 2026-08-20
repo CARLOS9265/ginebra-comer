@@ -83,6 +83,9 @@ export function LotForm({
     <div className="grid gap-6 lg:grid-cols-[1.2fr_0.9fr]">
       <form action={action} className="space-y-6">
         <input type="hidden" name="provider_code" value={providerCode} />
+        {refPrices?.gold != null && <input type="hidden" name="estimated_price_au" value={refPrices.gold} />}
+        {refPrices?.silver != null && <input type="hidden" name="estimated_price_ag" value={refPrices.silver} />}
+        {refPrices?.lead != null && <input type="hidden" name="estimated_price_pb" value={refPrices.lead} />}
 
         <Section title="Datos del lote">
           <div className="grid grid-cols-2 gap-4">
