@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { LotRowActions } from "./LotRowActions";
 
 const fmtUSD = (n: number | null) =>
   n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
@@ -19,9 +20,9 @@ const STATUS_LABELS: Record<string, string> = {
 export default async function LotsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ creado?: string }>;
+  searchParams: Promise<{ creado?: string; editado?: string }>;
 }) {
-  const { creado } = await searchParams;
+  const { creado, editado } = await searchParams;
   const supabase = await createClient();
   const { data: lots } = await supabase
     .from("purchase_lots")
@@ -35,6 +36,11 @@ export default async function LotsPage({
       {creado && (
         <div className="mb-4 rounded-lg border border-teal-800 bg-teal-950/40 px-4 py-2.5 text-sm text-teal-300">
           Lote <span className="font-mono">{creado}</span> registrado correctamente.
+        </div>
+      )}
+      {editado && (
+        <div className="mb-4 rounded-lg border border-teal-800 bg-teal-950/40 px-4 py-2.5 text-sm text-teal-300">
+          Lote <span className="font-mono">{editado}</span> actualizado correctamente.
         </div>
       )}
 
@@ -67,6 +73,7 @@ export default async function LotsPage({
                 <th className="px-4 py-3 text-right">Precio prov. /TMH</th>
                 <th className="px-4 py-3 text-right">Margen proy. /TMH</th>
                 <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -101,6 +108,9 @@ export default async function LotsPage({
                           Pendiente de aprobación
                         </span>
                       )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <LotRowActions id={l.id} canDelete={l.status === "creado"} />
                     </td>
                   </tr>
                 );

@@ -1,38 +1,68 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { createPurchaseLot, type LotFormState } from "../actions";
+import { createPurchaseLot, updatePurchaseLot, type LotFormState } from "./actions";
 import { canEstimate, estimateLot, type ContractSettings } from "@/lib/contract";
 
 type Provider = { id: string; code: string; name: string };
 
+export type LotInitialValues = {
+  provider_id: string;
+  mine_name: string;
+  concession: string;
+  loaded_at_local: string; // yyyy-MM-ddTHH:mm
+  truck_plate: string;
+  driver_name: string;
+  carrier_name: string;
+  estimated_weight_tmh: string;
+  reference_price_usd: string;
+  initial_guide_number: string;
+  initial_invoice_number: string;
+  estimated_ag: string;
+  estimated_au: string;
+  estimated_pb: string;
+  estimated_humidity: string;
+  estimated_price_ag: string;
+  estimated_price_au: string;
+  estimated_price_pb: string;
+  provisional_price_per_tmh: string;
+  advance_pct: string;
+};
+
 const fmtUSD = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 
-export function NewLotForm({
+export function LotForm({
   providers,
   contractSettings,
+  mode,
+  lotId,
+  initialValues,
 }: {
   providers: Provider[];
   contractSettings: ContractSettings | null;
+  mode: "create" | "edit";
+  lotId?: string;
+  initialValues?: LotInitialValues;
 }) {
-  const [state, action, pending] = useActionState<LotFormState, FormData>(
-    createPurchaseLot,
-    null,
-  );
+  const boundAction =
+    mode === "edit" && lotId ? updatePurchaseLot.bind(null, lotId) : createPurchaseLot;
+  const [state, action, pending] = useActionState<LotFormState, FormData>(boundAction, null);
 
-  const [providerId, setProviderId] = useState(providers[0]?.id ?? "");
+  const [providerId, setProviderId] = useState(initialValues?.provider_id ?? providers[0]?.id ?? "");
   const providerCode = providers.find((p) => p.id === providerId)?.code ?? "";
 
-  const [tmh, setTmh] = useState("");
-  const [ag, setAg] = useState("");
-  const [au, setAu] = useState("");
-  const [pb, setPb] = useState("");
-  const [humidity, setHumidity] = useState("");
-  const [precioAg, setPrecioAg] = useState("");
-  const [precioAu, setPrecioAu] = useState("");
-  const [precioPb, setPrecioPb] = useState("");
-  const [precioProvisional, setPrecioProvisional] = useState("");
+  const [tmh, setTmh] = useState(initialValues?.estimated_weight_tmh ?? "");
+  const [ag, setAg] = useState(initialValues?.estimated_ag ?? "");
+  const [au, setAu] = useState(initialValues?.estimated_au ?? "");
+  const [pb, setPb] = useState(initialValues?.estimated_pb ?? "");
+  const [humidity, setHumidity] = useState(initialValues?.estimated_humidity ?? "");
+  const [precioAg, setPrecioAg] = useState(initialValues?.estimated_price_ag ?? "");
+  const [precioAu, setPrecioAu] = useState(initialValues?.estimated_price_au ?? "");
+  const [precioPb, setPrecioPb] = useState(initialValues?.estimated_price_pb ?? "");
+  const [precioProvisional, setPrecioProvisional] = useState(
+    initialValues?.provisional_price_per_tmh ?? "",
+  );
 
   const estimate = useMemo(() => {
     if (!contractSettings) return null;
@@ -75,15 +105,21 @@ export function NewLotForm({
                 ))}
               </select>
             </label>
-            <TextField label="Mina de origen" name="mine_name" required={false} />
-            <TextField label="Concesión" name="concession" required={false} />
+            <TextField label="Mina de origen" name="mine_name" required={false} defaultValue={initialValues?.mine_name} />
+            <TextField label="Concesión" name="concession" required={false} defaultValue={initialValues?.concession} />
             <label className="block">
               <FieldLabel>Fecha y hora de carga</FieldLabel>
-              <input name="loaded_at" type="datetime-local" required className={inputClass} />
+              <input
+                name="loaded_at"
+                type="datetime-local"
+                required
+                defaultValue={initialValues?.loaded_at_local}
+                className={inputClass}
+              />
             </label>
-            <TextField label="Placa del volquete" name="truck_plate" required={false} />
-            <TextField label="Conductor" name="driver_name" required={false} />
-            <TextField label="Transportista" name="carrier_name" required={false} />
+            <TextField label="Placa del volquete" name="truck_plate" required={false} defaultValue={initialValues?.truck_plate} />
+            <TextField label="Conductor" name="driver_name" required={false} defaultValue={initialValues?.driver_name} />
+            <TextField label="Transportista" name="carrier_name" required={false} defaultValue={initialValues?.carrier_name} />
           </div>
         </Section>
 
@@ -102,18 +138,27 @@ export function NewLotForm({
               />
               <Hint>De la balanza de ejes.</Hint>
             </label>
-            <TextField label="Precio internacional de referencia (USD/TMH)" name="reference_price_usd" type="number" step="0.01" required={false} />
-            <TextField label="Número de guía inicial" name="initial_guide_number" required={false} />
-            <TextField label="Número de factura inicial" name="initial_invoice_number" required={false} />
-            <label className="col-span-2 block">
-              <FieldLabel>Precintos colocados</FieldLabel>
-              <textarea
-                name="seals"
-                rows={2}
-                placeholder="Uno por línea o separados por coma"
-                className={`${inputClass} resize-none`}
-              />
-            </label>
+            <TextField
+              label="Precio internacional de referencia (USD/TMH)"
+              name="reference_price_usd"
+              type="number"
+              step="0.01"
+              required={false}
+              defaultValue={initialValues?.reference_price_usd}
+            />
+            <TextField label="Número de guía inicial" name="initial_guide_number" required={false} defaultValue={initialValues?.initial_guide_number} />
+            <TextField label="Número de factura inicial" name="initial_invoice_number" required={false} defaultValue={initialValues?.initial_invoice_number} />
+            {mode === "create" && (
+              <label className="col-span-2 block">
+                <FieldLabel>Precintos colocados</FieldLabel>
+                <textarea
+                  name="seals"
+                  rows={2}
+                  placeholder="Uno por línea o separados por coma"
+                  className={`${inputClass} resize-none`}
+                />
+              </label>
+            )}
           </div>
         </Section>
 
@@ -147,7 +192,7 @@ export function NewLotForm({
                 className={inputClass}
               />
             </label>
-            <TextField label="% Adelanto al proveedor" name="advance_pct" type="number" step="1" required={false} />
+            <TextField label="% Adelanto al proveedor" name="advance_pct" type="number" step="1" required={false} defaultValue={initialValues?.advance_pct} />
           </div>
 
           {requiresApproval && (
@@ -176,7 +221,7 @@ export function NewLotForm({
           disabled={pending}
           className="rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-teal-500 disabled:opacity-60"
         >
-          {pending ? "Guardando..." : "Registrar lote"}
+          {pending ? "Guardando..." : mode === "edit" ? "Guardar cambios" : "Registrar lote"}
         </button>
       </form>
 
@@ -267,6 +312,7 @@ function TextField({
   step,
   required = true,
   value,
+  defaultValue,
   onChange,
 }: {
   label: string;
@@ -275,6 +321,7 @@ function TextField({
   step?: string;
   required?: boolean;
   value?: string;
+  defaultValue?: string;
   onChange?: (v: string) => void;
 }) {
   return (
@@ -286,6 +333,7 @@ function TextField({
         step={step}
         required={required}
         value={value}
+        defaultValue={value === undefined ? defaultValue : undefined}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         className={inputClass}
       />

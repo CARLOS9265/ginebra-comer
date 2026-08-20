@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { NewLotForm } from "./NewLotForm";
+import { LotForm } from "../LotForm";
 
 export default async function NewLotPage() {
   const supabase = await createClient();
@@ -34,7 +34,7 @@ export default async function NewLotPage() {
       </p>
 
       <div className="mt-6">
-        <NewLotForm providers={providers} contractSettings={cfg} />
+        <LotForm providers={providers} contractSettings={cfg} mode="create" />
       </div>
     </div>
   );
