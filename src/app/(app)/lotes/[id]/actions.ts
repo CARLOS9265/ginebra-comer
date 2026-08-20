@@ -4,11 +4,15 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { LOT_STATUS_ORDER, type LotStatus } from "@/lib/lot-status";
+import { estimateLot, type ContractSettings } from "@/lib/contract";
 
 export type LogisticsFormState = { error?: string } | null;
 
 // Debe coincidir con las políticas RLS de transport_events/weighings en 0001_init.sql.
 const ALLOWED_ROLES = ["operaciones", "calidad", "gerencia", "administrador"];
+
+// Debe coincidir con las políticas RLS de lot_settlements en 0011_lot_settlements.sql.
+const SETTLEMENT_ROLES = ["compras", "contabilidad", "gerencia", "administrador"];
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -85,10 +89,13 @@ export async function createTransportEvent(
 
 export async function deleteTransportEvent(lotId: string, eventId: string) {
   const { profile } = await getCurrentUser();
-  if (!profile || !ALLOWED_ROLES.includes(profile.role)) return;
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede eliminar este registro." };
+  }
 
   const supabase = await createClient();
-  await supabase.from("transport_events").delete().eq("id", eventId);
+  const { error } = await supabase.from("transport_events").delete().eq("id", eventId);
+  if (error) return { error: `No se pudo eliminar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
 }
 
@@ -137,10 +144,13 @@ export async function createWeighing(
 
 export async function deleteWeighing(lotId: string, weighingId: string) {
   const { profile } = await getCurrentUser();
-  if (!profile || !ALLOWED_ROLES.includes(profile.role)) return;
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede eliminar este registro." };
+  }
 
   const supabase = await createClient();
-  await supabase.from("weighings").delete().eq("id", weighingId);
+  const { error } = await supabase.from("weighings").delete().eq("id", weighingId);
+  if (error) return { error: `No se pudo eliminar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
 }
 
@@ -174,10 +184,13 @@ export async function createMillReception(
 
 export async function deleteMillReception(lotId: string, receptionId: string) {
   const { profile } = await getCurrentUser();
-  if (!profile || !ALLOWED_ROLES.includes(profile.role)) return;
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede eliminar este registro." };
+  }
 
   const supabase = await createClient();
-  await supabase.from("mill_receptions").delete().eq("id", receptionId);
+  const { error } = await supabase.from("mill_receptions").delete().eq("id", receptionId);
+  if (error) return { error: `No se pudo eliminar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
 }
 
@@ -213,10 +226,18 @@ export async function createComminution(
 
 export async function deleteComminution(lotId: string, comminutionId: string) {
   const { profile } = await getCurrentUser();
-  if (!profile || !ALLOWED_ROLES.includes(profile.role)) return;
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede eliminar este registro." };
+  }
 
   const supabase = await createClient();
-  await supabase.from("comminutions").delete().eq("id", comminutionId);
+  const { error } = await supabase.from("comminutions").delete().eq("id", comminutionId);
+  if (error) {
+    if (error.code === "23503") {
+      return { error: "No se puede eliminar: todavía tiene big bags cargados. Borrá esos primero." };
+    }
+    return { error: `No se pudo eliminar: ${error.message}` };
+  }
   revalidatePath(`/lotes/${lotId}`);
 }
 
@@ -271,10 +292,13 @@ export async function addBigBag(
 
 export async function deleteBigBag(lotId: string, bagId: string) {
   const { profile } = await getCurrentUser();
-  if (!profile || !ALLOWED_ROLES.includes(profile.role)) return;
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede eliminar este registro." };
+  }
 
   const supabase = await createClient();
-  await supabase.from("big_bags").delete().eq("id", bagId);
+  const { error } = await supabase.from("big_bags").delete().eq("id", bagId);
+  if (error) return { error: `No se pudo eliminar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
 }
 
@@ -316,9 +340,141 @@ export async function createLabAnalysis(
 
 export async function deleteLabAnalysis(lotId: string, analysisId: string) {
   const { profile } = await getCurrentUser();
-  if (!profile || !ALLOWED_ROLES.includes(profile.role)) return;
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede eliminar este registro." };
+  }
 
   const supabase = await createClient();
-  await supabase.from("lab_analyses").delete().eq("id", analysisId);
+  const { error } = await supabase.from("lab_analyses").delete().eq("id", analysisId);
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        error: "No se puede eliminar: ya hay una liquidación definitiva que usa este resultado. Borrá esa primero.",
+      };
+    }
+    return { error: `No se pudo eliminar: ${error.message}` };
+  }
+  revalidatePath(`/lotes/${lotId}`);
+}
+
+export async function createSettlement(
+  lotId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !SETTLEMENT_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede registrar la liquidación definitiva." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: lot } = await supabase
+    .from("purchase_lots")
+    .select(
+      "estimated_weight_tmh, provisional_price_per_tmh, estimated_price_au, estimated_price_ag, estimated_price_pb",
+    )
+    .eq("id", lotId)
+    .maybeSingle();
+  if (!lot) return { error: "No se encontró el lote." };
+
+  const { data: analysis } = await supabase
+    .from("lab_analyses")
+    .select("id, au_gt, ag_gt, pb_pct, humidity_pct")
+    .eq("purchase_lot_id", lotId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!analysis) {
+    return { error: "Todavía no hay un resultado de laboratorio para este lote." };
+  }
+
+  const { data: oficial } = await supabase
+    .from("weighings")
+    .select("net_weight")
+    .eq("purchase_lot_id", lotId)
+    .eq("type", "oficial")
+    .order("weighed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: settings } = await supabase.from("contract_settings").select("*").eq("id", 1).maybeSingle();
+  if (!settings) return { error: "No se encontró la configuración del contrato (contract_settings)." };
+
+  const tmhUsed = oficial?.net_weight != null ? oficial.net_weight / 1000 : lot.estimated_weight_tmh;
+
+  if (
+    !tmhUsed ||
+    lot.estimated_price_au == null ||
+    lot.estimated_price_ag == null ||
+    lot.estimated_price_pb == null ||
+    analysis.au_gt == null ||
+    analysis.ag_gt == null ||
+    analysis.pb_pct == null
+  ) {
+    return {
+      error:
+        "Faltan datos para calcular (peso, precios de metal del provisional, o ley de laboratorio). Revisá el lote.",
+    };
+  }
+
+  const result = estimateLot(
+    {
+      tmh: tmhUsed,
+      ag: analysis.ag_gt,
+      au: analysis.au_gt,
+      pb: analysis.pb_pct,
+      humidity: analysis.humidity_pct ?? 0,
+      precioAg: lot.estimated_price_ag,
+      precioAu: lot.estimated_price_au,
+      precioPb: lot.estimated_price_pb,
+      precioProvisionalPorTonelada: lot.provisional_price_per_tmh ?? 0,
+    },
+    settings as unknown as ContractSettings,
+  );
+
+  const provisionalPagadoTotal = (lot.provisional_price_per_tmh ?? 0) * tmhUsed;
+  const saldoPendiente = result.precioMaximoCompraTotal - provisionalPagadoTotal;
+
+  const { error } = await supabase.from("lot_settlements").insert({
+    purchase_lot_id: lotId,
+    lab_analysis_id: analysis.id,
+    tmh_used: tmhUsed,
+    price_au: lot.estimated_price_au,
+    price_ag: lot.estimated_price_ag,
+    price_pb: lot.estimated_price_pb,
+    au_payable_pct: result.auPagablePct,
+    ag_payable_pct: result.agPagablePct,
+    pb_payable_pct: result.pbPagableFactor,
+    valor_py_per_tmh: result.valorPYxTMH,
+    costos_per_tmh: result.costosXTMH,
+    ganancia_objetivo_usd: settings.ganancia_objetivo_usd,
+    precio_definitivo_per_tmh: result.precioMaximoCompra,
+    precio_definitivo_total: result.precioMaximoCompraTotal,
+    provisional_pagado_total: provisionalPagadoTotal,
+    saldo_pendiente: saldoPendiente,
+    final_invoice_number: str(formData, "final_invoice_number") || null,
+    credit_debit_note_number: str(formData, "credit_debit_note_number") || null,
+    notes: str(formData, "notes") || null,
+    created_by: profile.id,
+  });
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  await advanceLotStatus(supabase, lotId, "valorizado", profile.id);
+
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function deleteSettlement(lotId: string, settlementId: string) {
+  const { profile } = await getCurrentUser();
+  if (!profile || !SETTLEMENT_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede eliminar este registro." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("lot_settlements").delete().eq("id", settlementId);
+  if (error) return { error: `No se pudo eliminar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
 }

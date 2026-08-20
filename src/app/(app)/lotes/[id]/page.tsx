@@ -8,6 +8,7 @@ import { MillReceptionForm } from "./MillReceptionForm";
 import { ComminutionForm } from "./ComminutionForm";
 import { BigBagForm } from "./BigBagForm";
 import { LabAnalysisForm } from "./LabAnalysisForm";
+import { SettlementForm } from "./SettlementForm";
 import { DeleteRowButton } from "./DeleteRowButton";
 import {
   deleteTransportEvent,
@@ -16,7 +17,9 @@ import {
   deleteComminution,
   deleteBigBag,
   deleteLabAnalysis,
+  deleteSettlement,
 } from "./actions";
+import { estimateLot, type ContractSettings } from "@/lib/contract";
 
 const SEAL_STATUS_LABELS: Record<string, string> = {
   disponible: "Disponible",
@@ -42,7 +45,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   const { data: lot } = await supabase
     .from("purchase_lots")
     .select(
-      "id, code, status, loaded_at, estimated_weight_tmh, provisional_price_per_tmh, carrier_name, truck_plate, estimated_au, estimated_ag, estimated_pb, providers(name, code)",
+      "id, code, status, loaded_at, estimated_weight_tmh, provisional_price_per_tmh, carrier_name, truck_plate, estimated_au, estimated_ag, estimated_pb, estimated_price_au, estimated_price_ag, estimated_price_pb, providers(name, code)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -58,6 +61,8 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
     { data: receptions },
     { data: comminutions },
     { data: labAnalyses },
+    { data: settlements },
+    { data: settings },
   ] = await Promise.all([
       supabase
         .from("transport_events")
@@ -91,6 +96,14 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         )
         .eq("purchase_lot_id", id)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("lot_settlements")
+        .select(
+          "id, tmh_used, precio_definitivo_per_tmh, precio_definitivo_total, provisional_pagado_total, saldo_pendiente, valor_py_per_tmh, costos_per_tmh, ganancia_objetivo_usd, final_invoice_number, credit_debit_note_number, notes, created_at",
+        )
+        .eq("purchase_lot_id", id)
+        .order("created_at", { ascending: false }),
+      supabase.from("contract_settings").select("*").eq("id", 1).maybeSingle(),
     ]);
 
   const inicial = weighings?.find((w) => w.type === "inicial");
@@ -121,6 +134,40 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       : undefined;
 
   const analysis = labAnalyses?.[0];
+  const settlement = settlements?.[0];
+
+  const settlementTmh = oficial?.net_weight != null ? oficial.net_weight / 1000 : lot.estimated_weight_tmh;
+  const canPreviewSettlement =
+    !settlement &&
+    !!analysis &&
+    settings != null &&
+    settlementTmh != null &&
+    lot.estimated_price_au != null &&
+    lot.estimated_price_ag != null &&
+    lot.estimated_price_pb != null &&
+    analysis.au_gt != null &&
+    analysis.ag_gt != null &&
+    analysis.pb_pct != null;
+
+  const settlementPreview = canPreviewSettlement
+    ? estimateLot(
+        {
+          tmh: settlementTmh!,
+          ag: analysis!.ag_gt!,
+          au: analysis!.au_gt!,
+          pb: analysis!.pb_pct!,
+          humidity: analysis!.humidity_pct ?? 0,
+          precioAg: lot.estimated_price_ag!,
+          precioAu: lot.estimated_price_au!,
+          precioPb: lot.estimated_price_pb!,
+          precioProvisionalPorTonelada: lot.provisional_price_per_tmh ?? 0,
+        },
+        settings as unknown as ContractSettings,
+      )
+    : null;
+
+  const previewProvisionalTotal = (lot.provisional_price_per_tmh ?? 0) * (settlementTmh ?? 0);
+  const previewSaldo = settlementPreview ? settlementPreview.precioMaximoCompraTotal - previewProvisionalTotal : null;
 
   return (
     <div className="space-y-8">
@@ -364,6 +411,81 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
           <LabAnalysisForm lotId={lot.id} />
         )}
       </Section>
+
+      <Section title="Valorización definitiva y liquidación">
+        {settlement ? (
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 p-3 text-sm">
+            <div className="space-y-1 text-slate-300">
+              <Row label="Precio definitivo /TMH" value={fmtUSD(settlement.precio_definitivo_per_tmh)} strong />
+              <Row label="Total definitivo" value={fmtUSD(settlement.precio_definitivo_total, 0)} />
+              <Row label="Ya pagado (provisional)" value={fmtUSD(settlement.provisional_pagado_total, 0)} />
+              <div className="border-t border-dashed border-slate-800 pt-1">
+                <Row
+                  label={settlement.saldo_pendiente >= 0 ? "Saldo a favor del proveedor" : "Saldo a favor de Ginebra"}
+                  value={fmtUSD(Math.abs(settlement.saldo_pendiente), 0)}
+                  strong
+                />
+              </div>
+              {(settlement.final_invoice_number || settlement.credit_debit_note_number) && (
+                <div className="text-xs text-slate-500">
+                  {settlement.final_invoice_number && `Factura final: ${settlement.final_invoice_number} · `}
+                  {settlement.credit_debit_note_number && `N/C-D: ${settlement.credit_debit_note_number}`}
+                </div>
+              )}
+              {settlement.notes && <div className="text-xs text-slate-500">Notas: {settlement.notes}</div>}
+            </div>
+            <DeleteRowButton
+              action={deleteSettlement.bind(null, lot.id, settlement.id)}
+              confirmText="¿Eliminar esta liquidación definitiva?"
+            />
+          </div>
+        ) : !analysis ? (
+          <p className="text-sm text-slate-500">
+            Falta el resultado de laboratorio para poder calcular la valorización definitiva.
+          </p>
+        ) : !settlementPreview ? (
+          <p className="text-sm text-slate-500">
+            Faltan datos para calcular (precios de metal del provisional, peso, o configuración del contrato).
+          </p>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm">
+              <p className="mb-2 text-xs font-medium text-slate-500">
+                Vista previa (con ley real de laboratorio y el precio de metales del provisional)
+              </p>
+              <Row label="Valor de venta a PY /TMH" value={fmtUSD(settlementPreview.valorPYxTMH)} />
+              <Row label="Costos hasta la venta /TMH" value={fmtUSD(settlementPreview.costosXTMH)} />
+              <Row label="Margen objetivo" value={fmtUSD(settings!.ganancia_objetivo_usd, 0)} />
+              <div className="my-2 border-t border-dashed border-slate-800" />
+              <Row label="Precio definitivo /TMH" value={fmtUSD(settlementPreview.precioMaximoCompra)} strong />
+              <Row label="Total definitivo" value={fmtUSD(settlementPreview.precioMaximoCompraTotal, 0)} />
+              <Row label="Ya pagado (provisional)" value={fmtUSD(previewProvisionalTotal, 0)} />
+              <Row
+                label={
+                  (previewSaldo ?? 0) >= 0 ? "Saldo a favor del proveedor" : "Saldo a favor de Ginebra"
+                }
+                value={fmtUSD(Math.abs(previewSaldo ?? 0), 0)}
+                strong
+              />
+            </div>
+            <SettlementForm lotId={lot.id} />
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+const fmtUSD = (n: number | null, decimals = 2) =>
+  n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: decimals });
+
+function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between">
+      <span className="text-slate-500">{label}</span>
+      <span className={`font-mono ${strong ? "text-sm font-semibold text-teal-400" : "text-slate-300"}`}>
+        {value}
+      </span>
     </div>
   );
 }
