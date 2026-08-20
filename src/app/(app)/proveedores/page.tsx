@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { ProviderRowActions } from "./ProviderRowActions";
 
-export default async function ProvidersPage() {
+export default async function ProvidersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ editado?: string }>;
+}) {
+  const { editado } = await searchParams;
   const supabase = await createClient();
   const { data: providers } = await supabase
     .from("providers")
@@ -10,6 +16,12 @@ export default async function ProvidersPage() {
 
   return (
     <div>
+      {editado && (
+        <div className="mb-4 rounded-lg border border-teal-800 bg-teal-950/40 px-4 py-2.5 text-sm text-teal-300">
+          Proveedor actualizado correctamente.
+        </div>
+      )}
+
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-slate-50">Proveedores</h1>
@@ -36,6 +48,7 @@ export default async function ProvidersPage() {
                 <th className="px-4 py-3">Nombre</th>
                 <th className="px-4 py-3">Mina</th>
                 <th className="px-4 py-3">Concesión</th>
+                <th className="px-4 py-3">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -45,6 +58,9 @@ export default async function ProvidersPage() {
                   <td className="px-4 py-3 text-slate-200">{p.name}</td>
                   <td className="px-4 py-3 text-slate-400">{p.mine_name ?? "—"}</td>
                   <td className="px-4 py-3 text-slate-400">{p.concession ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    <ProviderRowActions id={p.id} />
+                  </td>
                 </tr>
               ))}
             </tbody>
