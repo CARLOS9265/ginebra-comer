@@ -1,5 +1,12 @@
+import Link from "next/link";
 import { getCurrentUser, ROLE_LABELS } from "@/lib/auth";
 import { signOut } from "@/app/login/actions";
+
+const NAV_LINKS = [
+  { href: "/", label: "Inicio" },
+  { href: "/lotes", label: "Lotes de compra" },
+  { href: "/proveedores", label: "Proveedores" },
+];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, profile } = await getCurrentUser();
@@ -46,6 +53,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </form>
           </div>
         </div>
+        <nav className="mx-auto flex max-w-6xl gap-1 px-6">
+          {NAV_LINKS.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="rounded-t-lg px-3 py-2 text-sm text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
       </header>
       <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
     </div>
