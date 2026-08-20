@@ -7,6 +7,7 @@ import { WeighingForm } from "./WeighingForm";
 import { MillReceptionForm } from "./MillReceptionForm";
 import { ComminutionForm } from "./ComminutionForm";
 import { BigBagForm } from "./BigBagForm";
+import { LabAnalysisForm } from "./LabAnalysisForm";
 import { DeleteRowButton } from "./DeleteRowButton";
 import {
   deleteTransportEvent,
@@ -14,6 +15,7 @@ import {
   deleteMillReception,
   deleteComminution,
   deleteBigBag,
+  deleteLabAnalysis,
 } from "./actions";
 
 const SEAL_STATUS_LABELS: Record<string, string> = {
@@ -40,7 +42,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   const { data: lot } = await supabase
     .from("purchase_lots")
     .select(
-      "id, code, status, loaded_at, estimated_weight_tmh, provisional_price_per_tmh, carrier_name, truck_plate, providers(name, code)",
+      "id, code, status, loaded_at, estimated_weight_tmh, provisional_price_per_tmh, carrier_name, truck_plate, estimated_au, estimated_ag, estimated_pb, providers(name, code)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -49,8 +51,14 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
   const provider = Array.isArray(lot.providers) ? lot.providers[0] : lot.providers;
 
-  const [{ data: events }, { data: weighings }, { data: seals }, { data: receptions }, { data: comminutions }] =
-    await Promise.all([
+  const [
+    { data: events },
+    { data: weighings },
+    { data: seals },
+    { data: receptions },
+    { data: comminutions },
+    { data: labAnalyses },
+  ] = await Promise.all([
       supabase
         .from("transport_events")
         .select(
@@ -73,6 +81,13 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         .from("comminutions")
         .select(
           "id, started_at, finished_at, processed_tons, mill_invoice_number, tariff_pen_per_ton, responsible_name",
+        )
+        .eq("purchase_lot_id", id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("lab_analyses")
+        .select(
+          "id, sampled_at, analyzed_at, lab_name, report_number, au_gt, ag_gt, pb_pct, as_pct, sb_pct, s_pct, humidity_pct, notes",
         )
         .eq("purchase_lot_id", id)
         .order("created_at", { ascending: false }),
@@ -104,6 +119,8 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
     oficial?.net_weight != null
       ? `Pesaje oficial: ${fmtKg(oficial.net_weight)} (${(oficial.net_weight / 1000).toFixed(2)} TM)`
       : undefined;
+
+  const analysis = labAnalyses?.[0];
 
   return (
     <div className="space-y-8">
@@ -315,6 +332,60 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
           <ComminutionForm lotId={lot.id} officialWeightHint={officialWeightHint} />
         )}
       </Section>
+
+      <Section title="Laboratorio">
+        {analysis ? (
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 p-3 text-sm">
+            <div className="space-y-2 text-slate-300">
+              <div>
+                {analysis.lab_name ?? "Laboratorio sin datos"} ·{" "}
+                {fmtDate(analysis.analyzed_at) ?? fmtDate(analysis.sampled_at) ?? "Sin fecha"}
+                {analysis.report_number && ` · Informe ${analysis.report_number}`}
+              </div>
+              <div className="space-y-1">
+                <MetalCompareRow label="Au" unit="g/t" real={analysis.au_gt} estimated={lot.estimated_au} />
+                <MetalCompareRow label="Ag" unit="g/t" real={analysis.ag_gt} estimated={lot.estimated_ag} />
+                <MetalCompareRow label="Pb" unit="%" real={analysis.pb_pct} estimated={lot.estimated_pb} />
+              </div>
+              <div className="text-xs text-slate-500">
+                {analysis.as_pct != null && `As ${analysis.as_pct}% · `}
+                {analysis.sb_pct != null && `Sb ${analysis.sb_pct}% · `}
+                {analysis.s_pct != null && `S ${analysis.s_pct}% · `}
+                {analysis.humidity_pct != null && `Humedad ${analysis.humidity_pct}%`}
+              </div>
+              {analysis.notes && <div className="text-xs text-slate-500">Notas: {analysis.notes}</div>}
+            </div>
+            <DeleteRowButton
+              action={deleteLabAnalysis.bind(null, lot.id, analysis.id)}
+              confirmText="¿Eliminar este resultado de laboratorio?"
+            />
+          </div>
+        ) : (
+          <LabAnalysisForm lotId={lot.id} />
+        )}
+      </Section>
+    </div>
+  );
+}
+
+function MetalCompareRow({
+  label,
+  unit,
+  real,
+  estimated,
+}: {
+  label: string;
+  unit: string;
+  real: number | null;
+  estimated: number | null;
+}) {
+  if (real == null) return null;
+  const isLow = estimated != null && real < estimated;
+  return (
+    <div className={`text-xs ${isLow ? "text-amber-400" : "text-slate-300"}`}>
+      {label}: {real} {unit}
+      {estimated != null && ` (estimado: ${estimated} ${unit})`}
+      {isLow && " — menor al estimado, revisar"}
     </div>
   );
 }

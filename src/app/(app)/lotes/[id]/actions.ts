@@ -277,3 +277,48 @@ export async function deleteBigBag(lotId: string, bagId: string) {
   await supabase.from("big_bags").delete().eq("id", bagId);
   revalidatePath(`/lotes/${lotId}`);
 }
+
+export async function createLabAnalysis(
+  lotId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede registrar resultados de laboratorio." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("lab_analyses").insert({
+    purchase_lot_id: lotId,
+    sampled_at: str(formData, "sampled_at") ? new Date(str(formData, "sampled_at")).toISOString() : null,
+    analyzed_at: str(formData, "analyzed_at") ? new Date(str(formData, "analyzed_at")).toISOString() : null,
+    lab_name: str(formData, "lab_name") || null,
+    report_number: str(formData, "report_number") || null,
+    au_gt: num(formData, "au_gt"),
+    ag_gt: num(formData, "ag_gt"),
+    pb_pct: num(formData, "pb_pct"),
+    as_pct: num(formData, "as_pct"),
+    sb_pct: num(formData, "sb_pct"),
+    s_pct: num(formData, "s_pct"),
+    humidity_pct: num(formData, "humidity_pct"),
+    notes: str(formData, "notes") || null,
+    created_by: profile.id,
+  });
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  await advanceLotStatus(supabase, lotId, "en_laboratorio", profile.id);
+
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function deleteLabAnalysis(lotId: string, analysisId: string) {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) return;
+
+  const supabase = await createClient();
+  await supabase.from("lab_analyses").delete().eq("id", analysisId);
+  revalidatePath(`/lotes/${lotId}`);
+}
