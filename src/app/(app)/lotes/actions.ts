@@ -35,6 +35,9 @@ function buildLotFields(formData: FormData, profileId: string) {
     advance_pct: num(formData, "advance_pct"),
     initial_guide_number: str(formData, "initial_guide_number") || null,
     initial_invoice_number: str(formData, "initial_invoice_number") || null,
+    estimated_au: num(formData, "estimated_au"),
+    estimated_ag: num(formData, "estimated_ag"),
+    estimated_pb: num(formData, "estimated_pb"),
     updated_by: profileId,
   };
 

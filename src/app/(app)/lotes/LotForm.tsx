@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { createPurchaseLot, updatePurchaseLot, type LotFormState } from "./actions";
 import { CARRIERS } from "@/lib/carriers";
+import { calcProvisionalPrice } from "@/lib/provisional-price";
 
 type Provider = { id: string; code: string; name: string };
 
@@ -17,6 +18,9 @@ export type LotInitialValues = {
   reference_price_usd: string;
   initial_guide_number: string;
   initial_invoice_number: string;
+  estimated_ag: string;
+  estimated_au: string;
+  estimated_pb: string;
   provisional_price_per_tmh: string;
   advance_pct: string;
 };
@@ -29,8 +33,8 @@ export type ReferencePrices = {
   isLive: boolean;
 };
 
-const fmtUSD0 = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+const fmtUSD = (n: number, decimals = 2) =>
+  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: decimals });
 
 export function LotForm({
   providers,
@@ -52,18 +56,31 @@ export function LotForm({
   const [providerId, setProviderId] = useState(initialValues?.provider_id ?? providers[0]?.id ?? "");
   const providerCode = providers.find((p) => p.id === providerId)?.code ?? "";
   const [tmh, setTmh] = useState(initialValues?.estimated_weight_tmh ?? "");
+  const [payablePct, setPayablePct] = useState(String(refPrices?.referencePct ?? 40));
+  const [goldGrade, setGoldGrade] = useState(initialValues?.estimated_au ?? "");
+  const [silverGrade, setSilverGrade] = useState(initialValues?.estimated_ag ?? "");
+  const [leadGrade, setLeadGrade] = useState(initialValues?.estimated_pb ?? "");
+  const [provisional, setProvisional] = useState(initialValues?.provisional_price_per_tmh ?? "");
 
-  const reference = useMemo(() => {
+  const suggestion = useMemo(() => {
+    if (!refPrices || refPrices.gold == null || refPrices.silver == null) return null;
     const tmhNum = Number(tmh);
-    if (!refPrices || !tmhNum) return null;
-    const pct = refPrices.referencePct / 100;
-    const goldRef = refPrices.gold != null ? refPrices.gold * pct * tmhNum : null;
-    const silverRef = refPrices.silver != null ? refPrices.silver * pct * tmhNum : null;
-    return { goldRef, silverRef };
-  }, [refPrices, tmh]);
+    const pctNum = Number(payablePct);
+    if (!tmhNum || !pctNum) return null;
+    return calcProvisionalPrice({
+      tmh: tmhNum,
+      payablePct: pctNum,
+      goldPriceUsdOz: refPrices.gold,
+      silverPriceUsdOz: refPrices.silver,
+      leadPriceUsdTon: refPrices.lead ?? 0,
+      goldGradeGT: Number(goldGrade) || 0,
+      silverGradeGT: Number(silverGrade) || 0,
+      leadGradePct: Number(leadGrade) || 0,
+    });
+  }, [refPrices, tmh, payablePct, goldGrade, silverGrade, leadGrade]);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+    <div className="grid gap-6 lg:grid-cols-[1.2fr_0.9fr]">
       <form action={action} className="space-y-6">
         <input type="hidden" name="provider_code" value={providerCode} />
 
@@ -157,19 +174,84 @@ export function LotForm({
           </div>
         </Section>
 
-        <Section title="Negociación con el proveedor">
+        <Section title="Ley estimada (para el pago provisional)">
           <p className="mb-3 text-xs text-slate-500">
-            Precio provisional acordado con el proveedor. La ley todavía no se conoce en este
-            paso — se carga después de la molienda, en el paso de laboratorio y valorización.
+            No es un resultado de laboratorio — es una ley asumida (promedio histórico del
+            proveedor o acordada) que sirve solo para calcular el pago inicial. La ley real
+            llega después de la molienda y ahí se reliquida (segunda fijación).
           </p>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <label className="block">
+              <FieldLabel>Au (g/t)</FieldLabel>
+              <input
+                name="estimated_au"
+                type="number"
+                step="0.01"
+                value={goldGrade}
+                onChange={(e) => setGoldGrade(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <FieldLabel>Ag (g/t)</FieldLabel>
+              <input
+                name="estimated_ag"
+                type="number"
+                step="0.01"
+                value={silverGrade}
+                onChange={(e) => setSilverGrade(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <FieldLabel>Pb (%)</FieldLabel>
+              <input
+                name="estimated_pb"
+                type="number"
+                step="0.01"
+                value={leadGrade}
+                onChange={(e) => setLeadGrade(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <FieldLabel>% pagable inicial</FieldLabel>
+              <input
+                name="payable_pct"
+                type="number"
+                step="1"
+                value={payablePct}
+                onChange={(e) => setPayablePct(e.target.value)}
+                className={inputClass}
+              />
+              <Hint>Por defecto viene de Precios, pero se puede ajustar acá.</Hint>
+            </label>
+          </div>
+        </Section>
+
+        <Section title="Negociación con el proveedor">
           <div className="grid grid-cols-2 gap-4">
-            <TextField
-              label="Precio provisional (USD/TMH)"
-              name="provisional_price_per_tmh"
-              type="number"
-              step="0.01"
-              defaultValue={initialValues?.provisional_price_per_tmh}
-            />
+            <label className="block">
+              <FieldLabel>Precio provisional (USD/TMH)</FieldLabel>
+              <input
+                name="provisional_price_per_tmh"
+                type="number"
+                step="0.01"
+                required
+                value={provisional}
+                onChange={(e) => setProvisional(e.target.value)}
+                className={inputClass}
+              />
+              {suggestion && (
+                <button
+                  type="button"
+                  onClick={() => setProvisional(suggestion.unitPriceUsdPerTms.toFixed(2))}
+                  className="mt-1.5 text-xs text-teal-400 hover:underline"
+                >
+                  Usar sugerido ({fmtUSD(suggestion.unitPriceUsdPerTms)}/TMH)
+                </button>
+              )}
+            </label>
             <TextField label="% Adelanto al proveedor" name="advance_pct" type="number" step="1" required={false} defaultValue={initialValues?.advance_pct} />
           </div>
         </Section>
@@ -192,7 +274,7 @@ export function LotForm({
       <div className="lg:sticky lg:top-20 lg:self-start">
         <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-200">Referencia de mercado</h2>
+            <h2 className="text-sm font-semibold text-slate-200">Pago provisional sugerido</h2>
             {refPrices?.isLive && (
               <span className="flex items-center gap-1.5 text-xs text-teal-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-teal-400" /> En vivo
@@ -200,30 +282,31 @@ export function LotForm({
             )}
           </div>
           {!refPrices || (refPrices.gold == null && refPrices.silver == null) ? (
-            <p className="text-sm text-slate-500">
-              No se pudo leer el precio internacional ahora mismo.
-            </p>
+            <p className="text-sm text-slate-500">No se pudo leer el precio internacional ahora mismo.</p>
           ) : (
             <div className="space-y-3 text-sm">
-              <Row label="Oro (USD/oz)" value={refPrices.gold != null ? fmtUSD0(refPrices.gold) : "—"} />
-              <Row label="Plata (USD/oz)" value={refPrices.silver != null ? fmtUSD0(refPrices.silver) : "—"} />
-              {refPrices.lead != null && <Row label="Plomo (USD/TM)" value={fmtUSD0(refPrices.lead)} />}
+              <Row label="Oro (USD/oz)" value={fmtUSD(refPrices.gold)} />
+              <Row label="Plata (USD/oz)" value={fmtUSD(refPrices.silver)} />
+              {refPrices.lead != null && <Row label="Plomo (USD/TM)" value={fmtUSD(refPrices.lead, 0)} />}
+              <Row label="% pagable inicial" value={`${payablePct || 0}%`} />
+
               <div className="border-t border-dashed border-slate-800 pt-3">
-                <p className="mb-2 text-xs text-slate-500">
-                  Referencia al {refPrices.referencePct}% del valor internacional × TMH cargado
-                  (no es la valorización final — eso se calcula con ley real tras la molienda).
-                </p>
-                {!tmh ? (
-                  <p className="text-xs text-slate-600">Cargá el peso (TMH) para ver el cálculo.</p>
-                ) : (
+                {!tmh || !goldGrade && !silverGrade && !leadGrade ? (
+                  <p className="text-xs text-slate-600">
+                    Cargá el peso (TMH) y al menos una ley estimada para ver el cálculo.
+                  </p>
+                ) : suggestion ? (
                   <>
-                    {reference?.goldRef != null && (
-                      <Row label="Ref. por oro" value={fmtUSD0(reference.goldRef)} strong />
-                    )}
-                    {reference?.silverRef != null && (
-                      <Row label="Ref. por plata" value={fmtUSD0(reference.silverRef)} strong />
-                    )}
+                    <Row label="Au → USD/TMS" value={fmtUSD(suggestion.goldUsdPerTms)} />
+                    <Row label="Ag → USD/TMS" value={fmtUSD(suggestion.silverUsdPerTms)} />
+                    <Row label="Pb → USD/TMS" value={fmtUSD(suggestion.leadUsdPerTms)} />
+                    <div className="mt-2 border-t border-dashed border-slate-800 pt-2">
+                      <Row label="Precio unitario" value={`${fmtUSD(suggestion.unitPriceUsdPerTms)}/TMH`} strong />
+                      <Row label="Total del lote" value={fmtUSD(suggestion.totalUsd, 0)} strong />
+                    </div>
                   </>
+                ) : (
+                  <p className="text-xs text-slate-600">Cargá el peso y la ley estimada.</p>
                 )}
               </div>
             </div>

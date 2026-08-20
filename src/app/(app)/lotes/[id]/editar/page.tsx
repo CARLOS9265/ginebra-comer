@@ -43,6 +43,9 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
     reference_price_usd: s(lot.reference_price_usd),
     initial_guide_number: s(lot.initial_guide_number),
     initial_invoice_number: s(lot.initial_invoice_number),
+    estimated_au: s(lot.estimated_au),
+    estimated_ag: s(lot.estimated_ag),
+    estimated_pb: s(lot.estimated_pb),
     provisional_price_per_tmh: s(lot.provisional_price_per_tmh),
     advance_pct: s(lot.advance_pct),
   };
