@@ -1,21 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { LotRowActions } from "./LotRowActions";
+import { LOT_STATUS_LABELS } from "@/lib/lot-status";
 
 const fmtUSD = (n: number | null) =>
   n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
-
-const STATUS_LABELS: Record<string, string> = {
-  creado: "Creado",
-  en_transito: "En tránsito",
-  pesado: "Pesado",
-  recibido_molino: "Recibido en molino",
-  conminuido: "Conminuido",
-  en_laboratorio: "En laboratorio",
-  valorizado: "Valorizado",
-  en_almacen: "En almacén",
-  cerrado: "Cerrado",
-};
 
 export default async function LotsPage({
   searchParams,
@@ -81,7 +70,11 @@ export default async function LotsPage({
                 const provider = Array.isArray(l.providers) ? l.providers[0] : l.providers;
                 return (
                   <tr key={l.id} className="hover:bg-slate-900/50">
-                    <td className="px-4 py-3 font-mono text-slate-200">{l.code}</td>
+                    <td className="px-4 py-3 font-mono text-slate-200">
+                      <Link href={`/lotes/${l.id}`} className="hover:text-teal-400 hover:underline">
+                        {l.code}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 text-slate-300">{provider?.name ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-400">
                       {new Date(l.loaded_at).toLocaleDateString("es-PE")}
@@ -101,7 +94,7 @@ export default async function LotsPage({
                     </td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs text-slate-300">
-                        {STATUS_LABELS[l.status] ?? l.status}
+                        {LOT_STATUS_LABELS[l.status as keyof typeof LOT_STATUS_LABELS] ?? l.status}
                       </span>
                       {l.requires_approval && !l.approved_at && (
                         <span className="ml-2 rounded-full bg-amber-950/60 px-2.5 py-1 text-xs text-amber-400">
