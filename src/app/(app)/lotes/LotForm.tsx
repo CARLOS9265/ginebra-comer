@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { createPurchaseLot, updatePurchaseLot, type LotFormState } from "./actions";
 import { canEstimate, estimateLot, type ContractSettings } from "@/lib/contract";
+import { CARRIERS } from "@/lib/carriers";
 
 type Provider = { id: string; code: string; name: string };
 
@@ -119,7 +120,17 @@ export function LotForm({
             </label>
             <TextField label="Placa del volquete" name="truck_plate" required={false} defaultValue={initialValues?.truck_plate} />
             <TextField label="Conductor" name="driver_name" required={false} defaultValue={initialValues?.driver_name} />
-            <TextField label="Transportista" name="carrier_name" required={false} defaultValue={initialValues?.carrier_name} />
+            <label className="block">
+              <FieldLabel>Transportista</FieldLabel>
+              <select name="carrier_name" defaultValue={initialValues?.carrier_name ?? ""} className={selectClass}>
+                <option value="">Elegir...</option>
+                {CARRIERS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </Section>
 

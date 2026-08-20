@@ -11,6 +11,7 @@ import {
   todayISO,
 } from "@/lib/calendar";
 import { createSchedule, deleteSchedule, updateScheduleStatus, type ScheduleFormState } from "./actions";
+import { CARRIERS } from "@/lib/carriers";
 
 type Provider = { id: string; code: string; name: string };
 type ScheduleItem = {
@@ -311,7 +312,14 @@ function ScheduleForm({
         </label>
         <label className="block">
           <FieldLabel>Transportista</FieldLabel>
-          <input name="carrier_name" type="text" className={inputClass} />
+          <select name="carrier_name" defaultValue="" className={inputClass}>
+            <option value="">Elegir...</option>
+            {CARRIERS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 
