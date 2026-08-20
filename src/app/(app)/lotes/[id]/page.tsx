@@ -4,8 +4,17 @@ import { createClient } from "@/lib/supabase/server";
 import { LOT_STATUS_LABELS } from "@/lib/lot-status";
 import { TransportForm } from "./TransportForm";
 import { WeighingForm } from "./WeighingForm";
+import { MillReceptionForm } from "./MillReceptionForm";
+import { ComminutionForm } from "./ComminutionForm";
+import { BigBagForm } from "./BigBagForm";
 import { DeleteRowButton } from "./DeleteRowButton";
-import { deleteTransportEvent, deleteWeighing } from "./actions";
+import {
+  deleteTransportEvent,
+  deleteWeighing,
+  deleteMillReception,
+  deleteComminution,
+  deleteBigBag,
+} from "./actions";
 
 const SEAL_STATUS_LABELS: Record<string, string> = {
   disponible: "Disponible",
@@ -40,21 +49,34 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
   const provider = Array.isArray(lot.providers) ? lot.providers[0] : lot.providers;
 
-  const [{ data: events }, { data: weighings }, { data: seals }] = await Promise.all([
-    supabase
-      .from("transport_events")
-      .select(
-        "id, departed_at, carrier_name, tariff_pen_per_tmh, security_group_code, security_cost_pen, estimated_arrival, incidents",
-      )
-      .eq("purchase_lot_id", id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("weighings")
-      .select("id, type, gross_weight, tare_weight, net_weight, ticket_number, weighed_at, reason")
-      .eq("purchase_lot_id", id)
-      .order("weighed_at", { ascending: true }),
-    supabase.from("seals").select("id, code, status").eq("purchase_lot_id", id).order("code"),
-  ]);
+  const [{ data: events }, { data: weighings }, { data: seals }, { data: receptions }, { data: comminutions }] =
+    await Promise.all([
+      supabase
+        .from("transport_events")
+        .select(
+          "id, departed_at, carrier_name, tariff_pen_per_tmh, security_group_code, security_cost_pen, estimated_arrival, incidents",
+        )
+        .eq("purchase_lot_id", id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("weighings")
+        .select("id, type, gross_weight, tare_weight, net_weight, ticket_number, weighed_at, reason")
+        .eq("purchase_lot_id", id)
+        .order("weighed_at", { ascending: true }),
+      supabase.from("seals").select("id, code, status").eq("purchase_lot_id", id).order("code"),
+      supabase
+        .from("mill_receptions")
+        .select("id, received_at, supervisor_name, storage_location, incidents")
+        .eq("purchase_lot_id", id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("comminutions")
+        .select(
+          "id, started_at, finished_at, processed_tons, mill_invoice_number, tariff_pen_per_ton, responsible_name",
+        )
+        .eq("purchase_lot_id", id)
+        .order("created_at", { ascending: false }),
+    ]);
 
   const inicial = weighings?.find((w) => w.type === "inicial");
   const oficial = weighings?.find((w) => w.type === "oficial");
@@ -62,6 +84,26 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
     inicial?.net_weight != null && oficial?.net_weight != null
       ? Number((oficial.net_weight - inicial.net_weight).toFixed(2))
       : null;
+
+  const reception = receptions?.[0];
+  const comminution = comminutions?.[0];
+
+  const { data: bigBags } = comminution
+    ? await supabase
+        .from("big_bags")
+        .select("id, code, weight_kg, storage_location")
+        .eq("purchase_lot_id", id)
+        .order("code")
+    : { data: null };
+
+  const bagsTotalKg = bigBags?.reduce((sum, b) => sum + (b.weight_kg ?? 0), 0) ?? 0;
+  const processedKg = comminution?.processed_tons != null ? comminution.processed_tons * 1000 : null;
+  const bagsDiffKg = processedKg != null && bigBags && bigBags.length > 0 ? Number((bagsTotalKg - processedKg).toFixed(2)) : null;
+
+  const officialWeightHint =
+    oficial?.net_weight != null
+      ? `Pesaje oficial: ${fmtKg(oficial.net_weight)} (${(oficial.net_weight / 1000).toFixed(2)} TM)`
+      : undefined;
 
   return (
     <div className="space-y-8">
@@ -179,6 +221,99 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
           </div>
         )}
         <WeighingForm lotId={lot.id} />
+      </Section>
+
+      <Section title="Recepción en molino">
+        {reception ? (
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 p-3 text-sm">
+            <div className="space-y-0.5 text-slate-300">
+              <div>
+                {reception.supervisor_name ?? "Supervisor sin datos"} ·{" "}
+                {fmtDate(reception.received_at) ?? "Sin fecha"}
+              </div>
+              {reception.storage_location && (
+                <div className="text-xs text-slate-500">Ubicación: {reception.storage_location}</div>
+              )}
+              {reception.incidents && (
+                <div className="text-xs text-amber-400">Incidente: {reception.incidents}</div>
+              )}
+            </div>
+            <DeleteRowButton
+              action={deleteMillReception.bind(null, lot.id, reception.id)}
+              confirmText="¿Eliminar esta recepción en molino?"
+            />
+          </div>
+        ) : (
+          <MillReceptionForm lotId={lot.id} />
+        )}
+      </Section>
+
+      <Section title="Conminución y big bags">
+        {comminution ? (
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 p-3 text-sm">
+              <div className="space-y-0.5 text-slate-300">
+                <div>
+                  {comminution.responsible_name ?? "Responsable sin datos"} ·{" "}
+                  {fmtDate(comminution.started_at) ?? "Sin fecha de inicio"}
+                  {comminution.finished_at && ` → ${fmtDate(comminution.finished_at)}`}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {comminution.processed_tons != null && `Procesado (molino): ${comminution.processed_tons} TM · `}
+                  {comminution.tariff_pen_per_ton != null && `Tarifa S/ ${comminution.tariff_pen_per_ton}/TM`}
+                  {comminution.mill_invoice_number && ` · Factura ${comminution.mill_invoice_number}`}
+                </div>
+              </div>
+              <DeleteRowButton
+                action={deleteComminution.bind(null, lot.id, comminution.id)}
+                confirmText="¿Eliminar esta conminución? También podés dejar los big bags y borrar solo el encabezado."
+              />
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-xs font-medium text-slate-500">Big bags generados</h3>
+              {bigBags && bigBags.length > 0 ? (
+                <div className="mb-3 space-y-2">
+                  {bigBags.map((b) => (
+                    <div
+                      key={b.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 p-2.5 text-sm"
+                    >
+                      <div className="text-slate-300">
+                        <span className="font-mono">{b.code}</span> · {fmtKg(b.weight_kg)}
+                        {b.storage_location && ` · ${b.storage_location}`}
+                      </div>
+                      <DeleteRowButton
+                        action={deleteBigBag.bind(null, lot.id, b.id)}
+                        confirmText={`¿Eliminar el big bag ${b.code}?`}
+                      />
+                    </div>
+                  ))}
+                  {bagsDiffKg != null && (
+                    <div
+                      className={`rounded-lg border px-3 py-2 text-xs ${
+                        bagsDiffKg === 0
+                          ? "border-slate-800 text-slate-400"
+                          : Math.abs(bagsDiffKg) <= 50
+                            ? "border-teal-900 bg-teal-950/30 text-teal-400"
+                            : "border-red-900 bg-red-950/30 text-red-400"
+                      }`}
+                    >
+                      Total en big bags: {fmtKg(bagsTotalKg)} · Diferencia vs. procesado (molino):{" "}
+                      {bagsDiffKg > 0 ? "+" : ""}
+                      {bagsDiffKg.toLocaleString("es-PE")} kg
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="mb-3 text-sm text-slate-500">Todavía no se cargó ningún big bag.</p>
+              )}
+              <BigBagForm lotId={lot.id} comminutionId={comminution.id} />
+            </div>
+          </div>
+        ) : (
+          <ComminutionForm lotId={lot.id} officialWeightHint={officialWeightHint} />
+        )}
       </Section>
     </div>
   );

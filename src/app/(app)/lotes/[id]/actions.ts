@@ -143,3 +143,137 @@ export async function deleteWeighing(lotId: string, weighingId: string) {
   await supabase.from("weighings").delete().eq("id", weighingId);
   revalidatePath(`/lotes/${lotId}`);
 }
+
+export async function createMillReception(
+  lotId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede registrar la recepción en molino." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("mill_receptions").insert({
+    purchase_lot_id: lotId,
+    received_at: str(formData, "received_at") ? new Date(str(formData, "received_at")).toISOString() : null,
+    supervisor_name: str(formData, "supervisor_name") || null,
+    storage_location: str(formData, "storage_location") || null,
+    incidents: str(formData, "incidents") || null,
+    created_by: profile.id,
+  });
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  await advanceLotStatus(supabase, lotId, "recibido_molino", profile.id);
+
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function deleteMillReception(lotId: string, receptionId: string) {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) return;
+
+  const supabase = await createClient();
+  await supabase.from("mill_receptions").delete().eq("id", receptionId);
+  revalidatePath(`/lotes/${lotId}`);
+}
+
+export async function createComminution(
+  lotId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede registrar la conminución." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("comminutions").insert({
+    purchase_lot_id: lotId,
+    started_at: str(formData, "started_at") ? new Date(str(formData, "started_at")).toISOString() : null,
+    finished_at: str(formData, "finished_at") ? new Date(str(formData, "finished_at")).toISOString() : null,
+    processed_tons: num(formData, "processed_tons"),
+    mill_invoice_number: str(formData, "mill_invoice_number") || null,
+    tariff_pen_per_ton: num(formData, "tariff_pen_per_ton"),
+    responsible_name: str(formData, "responsible_name") || null,
+    created_by: profile.id,
+  });
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  await advanceLotStatus(supabase, lotId, "conminuido", profile.id);
+
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function deleteComminution(lotId: string, comminutionId: string) {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) return;
+
+  const supabase = await createClient();
+  await supabase.from("comminutions").delete().eq("id", comminutionId);
+  revalidatePath(`/lotes/${lotId}`);
+}
+
+export async function addBigBag(
+  lotId: string,
+  comminutionId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede registrar big bags." };
+  }
+
+  const weight = num(formData, "weight_kg");
+  const supabase = await createClient();
+
+  const { data: lot } = await supabase
+    .from("purchase_lots")
+    .select("code")
+    .eq("id", lotId)
+    .maybeSingle();
+  if (!lot) return { error: "No se encontró el lote." };
+
+  const { count } = await supabase
+    .from("big_bags")
+    .select("id", { count: "exact", head: true })
+    .eq("purchase_lot_id", lotId);
+
+  const seq = (count ?? 0) + 1;
+  const code = `GIN-${lot.code}-BB${String(seq).padStart(2, "0")}`;
+
+  const { error } = await supabase.from("big_bags").insert({
+    code,
+    purchase_lot_id: lotId,
+    comminution_id: comminutionId,
+    weight_kg: weight,
+    storage_location: str(formData, "storage_location") || null,
+    created_by: profile.id,
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "Se generó un código duplicado, probá guardar de nuevo." };
+    }
+    return { error: `No se pudo guardar: ${error.message}` };
+  }
+
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function deleteBigBag(lotId: string, bagId: string) {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) return;
+
+  const supabase = await createClient();
+  await supabase.from("big_bags").delete().eq("id", bagId);
+  revalidatePath(`/lotes/${lotId}`);
+}
