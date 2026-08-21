@@ -71,7 +71,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         .order("created_at", { ascending: false }),
       supabase
         .from("weighings")
-        .select("id, type, gross_weight, tare_weight, net_weight, ticket_number, weighed_at, reason")
+        .select("id, type, net_weight, ticket_number, weighed_at, reason")
         .eq("purchase_lot_id", id)
         .order("weighed_at", { ascending: true }),
       supabase.from("seals").select("id, code, status").eq("purchase_lot_id", id).order("code"),
@@ -252,7 +252,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
                 <div className="space-y-0.5 text-slate-300">
                   <div className="font-medium">{WEIGHING_TYPE_LABELS[w.type] ?? w.type}</div>
                   <div className="text-xs text-slate-500">
-                    Bruto {fmtKg(w.gross_weight)} · Tara {fmtKg(w.tare_weight)} · Neto {fmtKg(w.net_weight)}
+                    Neto {fmtKg(w.net_weight)}
                     {w.ticket_number && ` · Ticket ${w.ticket_number}`}
                     {w.weighed_at && ` · ${fmtDate(w.weighed_at)}`}
                   </div>

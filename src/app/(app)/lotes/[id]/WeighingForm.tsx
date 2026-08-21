@@ -28,17 +28,8 @@ export function WeighingForm({ lotId }: { lotId: string }) {
           </select>
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-400">Peso bruto (kg)</span>
-          <input name="gross_weight" type="number" step="0.01" className={inputClass} />
-        </label>
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-400">Tara (kg)</span>
-          <input name="tare_weight" type="number" step="0.01" className={inputClass} />
-        </label>
-        <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-400">Peso neto (kg)</span>
-          <input name="net_weight" type="number" step="0.01" className={inputClass} />
-          <span className="mt-1 block text-xs text-slate-600">Si lo dejás vacío, se calcula bruto − tara.</span>
+          <input name="net_weight" type="number" step="0.01" required className={inputClass} />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-400">N° de ticket</span>

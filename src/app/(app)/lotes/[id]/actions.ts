@@ -113,17 +113,12 @@ export async function createWeighing(
     return { error: "Elegí un tipo de pesaje válido." };
   }
 
-  const gross = num(formData, "gross_weight");
-  const tare = num(formData, "tare_weight");
-  const netInput = num(formData, "net_weight");
-  const net = netInput ?? (gross != null && tare != null ? gross - tare : null);
+  const net = num(formData, "net_weight");
 
   const supabase = await createClient();
   const { error } = await supabase.from("weighings").insert({
     purchase_lot_id: lotId,
     type,
-    gross_weight: gross,
-    tare_weight: tare,
     net_weight: net,
     ticket_number: str(formData, "ticket_number") || null,
     weighed_at: str(formData, "weighed_at") ? new Date(str(formData, "weighed_at")).toISOString() : null,
