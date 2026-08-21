@@ -5,7 +5,7 @@ import { createPurchaseLot, updatePurchaseLot, type LotFormState } from "./actio
 import { CARRIERS } from "@/lib/carriers";
 import { calcProvisionalPrice } from "@/lib/provisional-price";
 
-type Provider = { id: string; code: string; name: string };
+type Provider = { id: string; code: string; name: string; concession: string | null };
 
 export type LotInitialValues = {
   code: string;
@@ -15,14 +15,12 @@ export type LotInitialValues = {
   truck_plate: string;
   carrier_name: string;
   estimated_weight_tmh: string;
-  reference_price_usd: string;
   initial_guide_number: string;
   initial_invoice_number: string;
   estimated_ag: string;
   estimated_au: string;
   estimated_pb: string;
   provisional_price_per_tmh: string;
-  advance_pct: string;
 };
 
 export type ReferencePrices = {
@@ -55,6 +53,9 @@ export function LotForm({
 
   const [providerId, setProviderId] = useState(initialValues?.provider_id ?? providers[0]?.id ?? "");
   const providerCode = providers.find((p) => p.id === providerId)?.code ?? "";
+  const [concession, setConcession] = useState(
+    initialValues?.concession || providers.find((p) => p.id === providerId)?.concession || "",
+  );
   const [tmh, setTmh] = useState(initialValues?.estimated_weight_tmh ?? "");
   const [payablePct, setPayablePct] = useState(String(refPrices?.referencePct ?? 40));
   const [goldGrade, setGoldGrade] = useState(initialValues?.estimated_au ?? "");
@@ -102,7 +103,10 @@ export function LotForm({
               <select
                 name="provider_id"
                 value={providerId}
-                onChange={(e) => setProviderId(e.target.value)}
+                onChange={(e) => {
+                  setProviderId(e.target.value);
+                  setConcession(providers.find((p) => p.id === e.target.value)?.concession ?? "");
+                }}
                 className={selectClass}
               >
                 {providers.map((p) => (
@@ -112,7 +116,16 @@ export function LotForm({
                 ))}
               </select>
             </label>
-            <TextField label="Concesión" name="concession" required={false} defaultValue={initialValues?.concession} />
+            <label className="block">
+              <FieldLabel>Concesión</FieldLabel>
+              <input
+                name="concession"
+                value={concession}
+                onChange={(e) => setConcession(e.target.value)}
+                className={inputClass}
+              />
+              <Hint>Se completa sola según el proveedor elegido; se puede ajustar acá.</Hint>
+            </label>
             <label className="block">
               <FieldLabel>Fecha y hora de carga</FieldLabel>
               <input
@@ -153,14 +166,6 @@ export function LotForm({
               />
               <Hint>De la balanza de ejes.</Hint>
             </label>
-            <TextField
-              label="Precio internacional de referencia (USD/TMH)"
-              name="reference_price_usd"
-              type="number"
-              step="0.01"
-              required={false}
-              defaultValue={initialValues?.reference_price_usd}
-            />
             <TextField label="Número de guía inicial" name="initial_guide_number" required={false} defaultValue={initialValues?.initial_guide_number} />
             <TextField label="Número de factura inicial" name="initial_invoice_number" required={false} defaultValue={initialValues?.initial_invoice_number} />
             {mode === "create" && (
@@ -233,30 +238,27 @@ export function LotForm({
         </Section>
 
         <Section title="Negociación con el proveedor">
-          <div className="grid grid-cols-2 gap-4">
-            <label className="block">
-              <FieldLabel>Precio provisional (USD/TMH)</FieldLabel>
-              <input
-                name="provisional_price_per_tmh"
-                type="number"
-                step="0.01"
-                required
-                value={provisional}
-                onChange={(e) => setProvisional(e.target.value)}
-                className={inputClass}
-              />
-              {suggestion && (
-                <button
-                  type="button"
-                  onClick={() => setProvisional(suggestion.unitPriceUsdPerTms.toFixed(2))}
-                  className="mt-1.5 text-xs text-teal-400 hover:underline"
-                >
-                  Usar sugerido ({fmtUSD(suggestion.unitPriceUsdPerTms)}/TMH)
-                </button>
-              )}
-            </label>
-            <TextField label="% Adelanto al proveedor" name="advance_pct" type="number" step="1" required={false} defaultValue={initialValues?.advance_pct} />
-          </div>
+          <label className="block">
+            <FieldLabel>Precio provisional (USD/TMH)</FieldLabel>
+            <input
+              name="provisional_price_per_tmh"
+              type="number"
+              step="0.01"
+              required
+              value={provisional}
+              onChange={(e) => setProvisional(e.target.value)}
+              className={inputClass}
+            />
+            {suggestion && (
+              <button
+                type="button"
+                onClick={() => setProvisional(suggestion.unitPriceUsdPerTms.toFixed(2))}
+                className="mt-1.5 text-xs text-teal-400 hover:underline"
+              >
+                Usar sugerido ({fmtUSD(suggestion.unitPriceUsdPerTms)}/TMH)
+              </button>
+            )}
+          </label>
         </Section>
 
         {state?.error && (

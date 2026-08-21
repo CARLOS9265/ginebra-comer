@@ -20,7 +20,7 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
 
   const [{ data: lot }, { data: providers }, { data: latestPrice }, live] = await Promise.all([
     supabase.from("purchase_lots").select("*").eq("id", id).maybeSingle(),
-    supabase.from("providers").select("id, code, name").order("name"),
+    supabase.from("providers").select("id, code, name, concession").order("name"),
     supabase
       .from("daily_metal_prices")
       .select("*")
@@ -40,14 +40,12 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
     truck_plate: s(lot.truck_plate),
     carrier_name: s(lot.carrier_name),
     estimated_weight_tmh: s(lot.estimated_weight_tmh),
-    reference_price_usd: s(lot.reference_price_usd),
     initial_guide_number: s(lot.initial_guide_number),
     initial_invoice_number: s(lot.initial_invoice_number),
     estimated_au: s(lot.estimated_au),
     estimated_ag: s(lot.estimated_ag),
     estimated_pb: s(lot.estimated_pb),
     provisional_price_per_tmh: s(lot.provisional_price_per_tmh),
-    advance_pct: s(lot.advance_pct),
   };
 
   const refPrices: ReferencePrices = {

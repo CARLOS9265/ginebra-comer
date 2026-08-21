@@ -7,7 +7,7 @@ export default async function NewLotPage() {
   const supabase = await createClient();
 
   const [{ data: providers }, { data: latestPrice }, live] = await Promise.all([
-    supabase.from("providers").select("id, code, name").order("name"),
+    supabase.from("providers").select("id, code, name, concession").order("name"),
     supabase
       .from("daily_metal_prices")
       .select("*")
