@@ -60,28 +60,27 @@ export async function createTransportEvent(
     return { error: "Tu rol no puede registrar transporte." };
   }
 
-  const departedAt = str(formData, "departed_at");
   const supabase = await createClient();
+
+  const { data: lot } = await supabase
+    .from("purchase_lots")
+    .select("loaded_at")
+    .eq("id", lotId)
+    .maybeSingle();
+  if (!lot) return { error: "No se encontró el lote." };
 
   const { error } = await supabase.from("transport_events").insert({
     purchase_lot_id: lotId,
-    departed_at: departedAt ? new Date(departedAt).toISOString() : null,
+    departed_at: lot.loaded_at,
     carrier_name: str(formData, "carrier_name") || null,
     tariff_pen_per_tmh: num(formData, "tariff_pen_per_tmh"),
-    security_group_code: str(formData, "security_group_code") || null,
     security_cost_pen: num(formData, "security_cost_pen"),
-    estimated_arrival: str(formData, "estimated_arrival")
-      ? new Date(str(formData, "estimated_arrival")).toISOString()
-      : null,
-    incidents: str(formData, "incidents") || null,
     created_by: profile.id,
   });
 
   if (error) return { error: `No se pudo guardar: ${error.message}` };
 
-  if (departedAt) {
-    await advanceLotStatus(supabase, lotId, "en_transito", profile.id);
-  }
+  await advanceLotStatus(supabase, lotId, "en_transito", profile.id);
 
   revalidatePath(`/lotes/${lotId}`);
   return null;

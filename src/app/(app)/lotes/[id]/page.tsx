@@ -66,9 +66,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   ] = await Promise.all([
       supabase
         .from("transport_events")
-        .select(
-          "id, departed_at, carrier_name, tariff_pen_per_tmh, security_group_code, security_cost_pen, estimated_arrival, incidents",
-        )
+        .select("id, departed_at, carrier_name, tariff_pen_per_tmh, security_cost_pen")
         .eq("purchase_lot_id", id)
         .order("created_at", { ascending: false }),
       supabase
@@ -228,11 +226,9 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
                     {fmtDate(e.departed_at) ?? "Sin fecha de salida"}
                   </div>
                   <div className="text-xs text-slate-500">
-                    {e.tariff_pen_per_tmh != null && `Tarifa S/ ${e.tariff_pen_per_tmh}/TMH · `}
-                    {e.security_group_code && `Seguridad: ${e.security_group_code} · `}
-                    {e.estimated_arrival && `Llegada estimada: ${fmtDate(e.estimated_arrival)}`}
+                    {e.tariff_pen_per_tmh != null && `Tarifa S/ ${e.tariff_pen_per_tmh}/TMH`}
+                    {e.security_cost_pen != null && ` · Seguridad S/ ${e.security_cost_pen}`}
                   </div>
-                  {e.incidents && <div className="text-xs text-amber-400">Incidente: {e.incidents}</div>}
                 </div>
                 <DeleteRowButton
                   action={deleteTransportEvent.bind(null, lot.id, e.id)}
