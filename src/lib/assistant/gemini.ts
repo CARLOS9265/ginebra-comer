@@ -1,9 +1,9 @@
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3.6-flash";
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 export type GeminiPart =
   | { text: string }
-  | { functionCall: { name: string; args: Record<string, unknown> } }
+  | { functionCall: { name: string; args: Record<string, unknown> }; thoughtSignature?: string }
   | { functionResponse: { name: string; response: Record<string, unknown> } };
 
 export type GeminiContent = { role: "user" | "model"; parts: GeminiPart[] };
@@ -27,7 +27,11 @@ export async function generateContent(params: {
   contents: GeminiContent[];
   systemInstruction: string;
   tools: GeminiFunctionDeclaration[];
-}): Promise<{ text: string | null; functionCalls: { name: string; args: Record<string, unknown> }[] }> {
+}): Promise<{
+  text: string | null;
+  functionCalls: { name: string; args: Record<string, unknown> }[];
+  modelParts: GeminiPart[];
+}> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error(
@@ -52,17 +56,19 @@ export async function generateContent(params: {
 
   const json = await res.json();
   const candidate = json.candidates?.[0];
-  const parts: GeminiPart[] = candidate?.content?.parts ?? [];
+  // Se reenvía tal cual (incluyendo thoughtSignature) — Gemini 3 exige la
+  // firma exacta de vuelta en el siguiente turno o rechaza la llamada.
+  const modelParts: GeminiPart[] = candidate?.content?.parts ?? [];
 
-  const text = parts
+  const text = modelParts
     .filter((p): p is { text: string } => "text" in p)
     .map((p) => p.text)
     .join("")
     .trim();
 
-  const functionCalls = parts
+  const functionCalls = modelParts
     .filter((p): p is { functionCall: { name: string; args: Record<string, unknown> } } => "functionCall" in p)
     .map((p) => p.functionCall);
 
-  return { text: text || null, functionCalls };
+  return { text: text || null, functionCalls, modelParts };
 }

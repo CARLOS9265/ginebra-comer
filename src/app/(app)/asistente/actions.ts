@@ -75,7 +75,7 @@ export async function sendMessage(
       return { history: [...history, { role: "user", text: message }, { role: "model", text }] };
     }
 
-    contents.push({ role: "model", parts: result.functionCalls.map((fc) => ({ functionCall: fc })) });
+    contents.push({ role: "model", parts: result.modelParts });
 
     const responses: GeminiPart[] = [];
     for (const fc of result.functionCalls) {
