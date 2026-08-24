@@ -169,11 +169,19 @@ completo. Hecho hasta ahora:
   0013), con `sale_lot_id` agregado a `big_bags`.
 - `DeleteRowButton` y `ActionButton` se movieron de `lotes/[id]/` a
   `src/components/` porque ahora los usan tanto compra como venta.
+- **Despacho + recepción en PY** (`/ventas/[id]`) — evento único por lote de
+  venta (no una tabla de log aparte, como recepción en molino del lado de
+  compra): columnas directas en `sale_lots` (migración 0014). Cada paso
+  tiene un botón "Deshacer" que revierte el estado y limpia los campos —
+  útil porque es fácil equivocarse la fecha/transportista al cargar.
+  Despachar/recibir sincroniza el estado de todos los big bags del lote
+  (`reservado` → `despachado` → `recibido_py`), así `/big-bags` queda al
+  día. Probado de punta a punta: armado → despachado → recibido en PY,
+  con deshacer en cada paso.
 
-**Falta de Fase 2** (sin blending, por pedido del usuario): despacho del
-lote de venta + recepción en PY, muestreo conjunto (ley real del lado de
-PY), liquidación provisional (90%) y final de PY, fijaciones de precio por
-metal, márgenes por lote de compra/venta.
+**Falta de Fase 2** (sin blending, por pedido del usuario): muestreo
+conjunto (ley real del lado de PY), liquidación provisional (90%) y final
+de PY, fijaciones de precio por metal, márgenes por lote de compra/venta.
 
 **Precios internacionales** (`/precios`) — oro y plata se leen **en vivo** de
 inversoro.es (la fuente que pidió el usuario) en cada carga de página. Plomo se
@@ -192,7 +200,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0013`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0014`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
@@ -236,6 +244,8 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
 - `0013_sale_lots.sql` — tabla nueva `sale_lots` (lotes de venta a PY, Fase
   2), columna `sale_lot_id` en `big_bags`, y una política extra de UPDATE
   en `big_bags` para que el rol comercial pueda reservar bolsones.
+- `0014_sale_lot_dispatch.sql` — columnas de despacho y recepción en PY
+  directo en `sale_lots` (sin tabla de log aparte).
 
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
@@ -285,7 +295,7 @@ hacer. Progreso:
 - ~~Inventario de big bags~~ — **hecho** (`/big-bags`, ver arriba).
 - ~~Lote de venta~~ — **hecho** (`/ventas`, ver arriba). Selección manual,
   mezcla lotes de compra libremente.
-- Despacho del lote de venta + recepción en PY — falta.
+- ~~Despacho del lote de venta + recepción en PY~~ — **hecho** (`/ventas/[id]`, ver arriba).
 - Muestreo conjunto (ley real del lado de PY) — falta.
 - Liquidación provisional (90%) y final de PY — falta.
 - Fijaciones de precio por metal — falta.
