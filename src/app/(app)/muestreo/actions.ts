@@ -5,13 +5,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { estimateLot, type ContractSettings } from "@/lib/contract";
+import { fiveDayAveragePrices } from "@/lib/metal-prices";
 
 export type SampleBatchFormState = { error?: string } | null;
 
 // Debe coincidir con las políticas RLS de py_sample_batches en 0015_py_sample_batches.sql.
 const ALLOWED_ROLES = ["operaciones", "calidad", "comercial", "gerencia", "administrador"];
-
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 function str(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -39,29 +38,6 @@ function computeFixationWindow(deliveryDate: Date): { start: string; end: string
   return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
-async function fiveDayAveragePrices(supabase: SupabaseClient, refDate: string) {
-  const { data } = await supabase
-    .from("daily_metal_prices")
-    .select("gold_usd_oz, silver_usd_oz, lead_usd_ton")
-    .lte("price_date", refDate)
-    .order("price_date", { ascending: false })
-    .limit(5);
-
-  if (!data || data.length === 0) return null;
-
-  const avg = (values: (number | null)[]) => {
-    const present = values.filter((v): v is number => v != null);
-    if (present.length === 0) return null;
-    return present.reduce((s, v) => s + v, 0) / present.length;
-  };
-
-  return {
-    gold: avg(data.map((d) => d.gold_usd_oz)),
-    silver: avg(data.map((d) => d.silver_usd_oz)),
-    lead: avg(data.map((d) => d.lead_usd_ton)),
-    daysUsed: data.length,
-  };
-}
 
 export async function createSampleBatch() {
   const { profile } = await getCurrentUser();

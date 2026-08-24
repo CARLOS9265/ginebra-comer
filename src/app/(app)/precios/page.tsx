@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { todayISO } from "@/lib/calendar";
 import { getLiveGoldSilver } from "@/lib/live-metal-prices";
+import { fiveDayAveragePrices } from "@/lib/metal-prices";
 import { PriceForm } from "./PriceForm";
+import { PriceChart } from "./PriceChart";
 
 const fmtUSD = (n: number | null, decimals = 2) =>
   n == null
@@ -12,15 +14,24 @@ export default async function PricesPage() {
   const today = todayISO();
   const supabase = await createClient();
 
-  const [{ data: todayRow }, { data: recent }, live] = await Promise.all([
+  const [{ data: todayRow }, { data: recent }, live, average] = await Promise.all([
     supabase.from("daily_metal_prices").select("*").eq("price_date", today).maybeSingle(),
     supabase
       .from("daily_metal_prices")
       .select("*")
       .order("price_date", { ascending: false })
-      .limit(14),
+      .limit(30),
     getLiveGoldSilver(),
+    fiveDayAveragePrices(supabase, today),
   ]);
+
+  const chronological = [...(recent ?? [])].reverse();
+  const goldPoints = chronological
+    .filter((p) => p.gold_usd_oz != null)
+    .map((p) => ({ date: p.price_date, value: p.gold_usd_oz as number }));
+  const silverPoints = chronological
+    .filter((p) => p.silver_usd_oz != null)
+    .map((p) => ({ date: p.price_date, value: p.silver_usd_oz as number }));
 
   return (
     <div>
@@ -33,6 +44,36 @@ export default async function PricesPage() {
 
       <div className="mt-6">
         <PriceForm today={today} live={live} todayValues={todayRow ?? undefined} />
+      </div>
+
+      {average && (
+        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-slate-700">
+            Promedio de los últimos {average.daysUsed} días
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            El mismo cálculo que usa la liquidación provisional con PY (cláusula 5.1 del contrato).
+          </p>
+          <div className="mt-3 grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div className="text-xs text-slate-500">Oro</div>
+              <div className="font-mono text-lg font-semibold text-gold-700">{fmtUSD(average.gold)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">Plata</div>
+              <div className="font-mono text-lg font-semibold text-navy-700">{fmtUSD(average.silver)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">Plomo</div>
+              <div className="font-mono text-lg font-semibold text-slate-700">{fmtUSD(average.lead, 0)}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <PriceChart title="Oro (USD/oz)" unit="USD/oz" color="#a3730f" points={goldPoints} />
+        <PriceChart title="Plata (USD/oz)" unit="USD/oz" color="#234066" points={silverPoints} />
       </div>
 
       {recent && recent.length > 0 && (
