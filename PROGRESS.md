@@ -459,22 +459,46 @@ requerir tarjeta) en vez de la API de Anthropic.
   sobre alertas/agenda y sobre lotes sin liquidar devolvieron respuestas
   correctas cruzando varias tablas.
 
-**Nota de seguridad de esta sesión:** al configurar `GEMINI_API_KEY` el
-usuario pegó por error la contraseña de `SUPABASE_DB_URL` en el chat varias
-veces (confundiendo ambas credenciales). Se limpió el `.env.local` y se
-recomendó rotar esa contraseña en el dashboard de Supabase — **verificar
-que se haya hecho**, no quedó confirmado en la sesión.
+**Edición en el lugar (todas las pantallas de compra y venta).** El usuario pidió
+explícitamente que "cada cosa que se genere tenga la opción de editable" — antes,
+casi todo (transporte, pesajes, molino, conminución, laboratorio, ensayes de PY,
+etc.) solo se podía cargar y después borrar, sin poder corregir un dato sin
+borrar todo. Ahora cada sección de `/lotes/[id]`, `/ventas/[id]` y
+`/muestreo/[id]` tiene un botón "Editar" que reabre el mismo formulario
+precargado, en vez de forzar un borrar-y-recargar. Patrón usado en cada caso:
+un componente `*Row.tsx` chico (client) con estado local de edición, que
+muestra la vista o el formulario precargado, y se cierra solo al guardar con
+éxito (`useEffect` que detecta la transición pending→listo).
+- Donde un dato ya alimentó un cálculo de plata más abajo, la edición queda
+  **bloqueada igual que ya estaba bloqueado el borrado**: laboratorio de
+  compra una vez que hay liquidación definitiva, ensaye provisional/final de
+  PY una vez que su liquidación está calculada, y (nuevo, corregido en esta
+  misma sesión) **fijación de metal una vez que la liquidación final ya se
+  calculó** — antes "Deshacer" quedaba disponible incluso después de pagada,
+  lo que podía desincronizar el número final sin que nadie lo notara.
+- La liquidación definitiva de compra (`lot_settlements`) y la de PY
+  (montos de `py_sample_batches`) **no se re-calculan al editar** — solo se
+  pueden editar los campos administrativos (N° de factura, notas) mientras el
+  saldo no esté pagado. Si cambió la ley o el peso hay que borrar y
+  recalcular, no editar a mano.
 
 **Pendiente transversal:** la bitácora de auditoría (`audit_log`) existe en la base
 pero nada escribe ahí todavía — el pedido original quería que toda edición quede
-registrada con usuario/fecha/valor anterior/valor nuevo/motivo.
+registrada con usuario/fecha/valor anterior/valor nuevo/motivo. Con las pantallas
+de edición ya armadas, este sería el momento natural para conectarla (cada
+`update*` action ya sabe qué campo cambió).
 
 ## Datos de prueba en la base
 
-Proveedores "BUSINESS DIRECTION" (BUS) y "GRUPO CONSTRUCTOR Y MULTISERVICIOS" (GRU),
-lotes `BUS-26-01` a `BUS-26-05` (y uno viejo `GIN-BUS-2026-0001` del formato de
-código anterior). El usuario pidió dejarlos como referencia — se pueden borrar a
-mano después desde `/lotes` o el panel de Supabase.
+Se limpiaron los datos de prueba viejos a pedido del usuario (se mantuvieron los
+2 proveedores: BUSINESS DIRECTION / BUS, GRUPO CONSTRUCTOR Y MULTISERVICIOS /
+GRU). Quedó una **simulación completa de punta a punta** hecha en esta sesión,
+dejada a propósito como referencia funcionando: `BUS-26-01` (compra completa,
+cerrada) → `VTA-26-01` (23 bolsones, despachado y recibido en PY) →
+`MUE-26-01` (muestreo, liquidación provisional y final, ambas pagadas).
+Margen verificado en `/margenes`: $74,034 − $59,030 = **$15,004**, y el
+asistente de IA lo confirma correctamente al preguntarle. Se puede borrar
+cuando el usuario quiera arrancar 100% limpio, o dejarla como ejemplo.
 
 ## Notas de estilo de trabajo con el usuario
 
