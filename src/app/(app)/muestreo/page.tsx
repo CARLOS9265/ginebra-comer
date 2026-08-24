@@ -11,7 +11,9 @@ export default async function SampleBatchesPage() {
   const [{ data: batches }, { data: pendingLots }] = await Promise.all([
     supabase
       .from("py_sample_batches")
-      .select("id, code, created_at, au_gt, sale_lots(id, big_bags(weight_kg))")
+      .select(
+        "id, code, created_at, prov_au_gt, final_value_total, sale_lots(id, big_bags(weight_kg))",
+      )
       .order("created_at", { ascending: false }),
     supabase
       .from("sale_lots")
@@ -105,7 +107,11 @@ export default async function SampleBatchesPage() {
                     <td className="px-4 py-3 text-right font-mono text-slate-400">{fmtKg(totalKg)}</td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-400">
-                        {batch.au_gt != null ? "Con resultado" : "Pendiente"}
+                        {batch.final_value_total != null
+                          ? "Liquidado"
+                          : batch.prov_au_gt != null
+                            ? "Con ensaye provisional"
+                            : "Pendiente"}
                       </span>
                     </td>
                   </tr>
