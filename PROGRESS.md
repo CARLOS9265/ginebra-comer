@@ -31,7 +31,8 @@ node --env-file=.env.local scripts/migrate.mjs  # aplicar migraciones nuevas (o:
 **Nunca pedirle al usuario la contraseña de la base de datos por chat** — si hace
 falta, que la pegue directo en `.env.local` con un editor.
 
-Login de prueba (administrador): `carlombar65@gmail.com` / `Ginebra2026Admin!`.
+Login de prueba (administrador): `carlombar65@gmail.com` / `Sense.9265` (cambiada
+2026-08-24, la anterior era `Ginebra2026Admin!`).
 
 Proyecto Supabase: `ginebra-erp`, ref `bebaxicsoftxqnegwsuf`.
 
