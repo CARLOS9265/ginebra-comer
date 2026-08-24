@@ -144,6 +144,27 @@ programación de volquete: *compra* (llegada de mina, celeste) y *despacho* (ven
 PY en Lima, violeta), con estado (programado/confirmado/completado/cancelado) y
 borrado manual.
 
+**Fase 2 (venta a PY) — arrancada.** El usuario pidió saltear blending por
+completo. Hecho hasta ahora:
+- **Big bags** (`/big-bags`) — inventario global de todos los bolsones
+  (cualquier lote de compra), filtrable por estado (disponible/reservado/
+  despachado/recibido_py/liquidado). Mismo patrón visual que `/precintos`.
+- **Lotes de venta** (`/ventas`) — se arman a mano: se tildan big bags
+  disponibles de la lista (**pueden ser de distintos lotes de compra**,
+  confirmado con el usuario) y se crea el lote de venta con código
+  automático `VTA-AA-NN` (reusa `next_lot_seq('VTA', año)`, el mismo
+  generador de código de los lotes de compra). Se pueden sacar/agregar big
+  bags mientras el lote está en estado `armado`; borrar el lote libera los
+  bolsones de vuelta a `disponible`. Tabla nueva: `sale_lots` (migración
+  0013), con `sale_lot_id` agregado a `big_bags`.
+- `DeleteRowButton` y `ActionButton` se movieron de `lotes/[id]/` a
+  `src/components/` porque ahora los usan tanto compra como venta.
+
+**Falta de Fase 2** (sin blending, por pedido del usuario): despacho del
+lote de venta + recepción en PY, muestreo conjunto (ley real del lado de
+PY), liquidación provisional (90%) y final de PY, fijaciones de precio por
+metal, márgenes por lote de compra/venta.
+
 **Precios internacionales** (`/precios`) — oro y plata se leen **en vivo** de
 inversoro.es (la fuente que pidió el usuario) en cada carga de página. Plomo se
 carga a mano (esa fuente no lo tiene). Guarda un snapshot diario en
@@ -161,7 +182,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0012`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0013`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
@@ -202,6 +223,9 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
   (tenía SELECT/INSERT/UPDATE desde 0001 pero no DELETE), y columnas
   `paid_at`/`paid_by` en `lot_settlements` (para poder cerrar la compra
   solo cuando el saldo esté pagado).
+- `0013_sale_lots.sql` — tabla nueva `sale_lots` (lotes de venta a PY, Fase
+  2), columna `sale_lot_id` en `big_bags`, y una política extra de UPDATE
+  en `big_bags` para que el rol comercial pueda reservar bolsones.
 
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
@@ -246,9 +270,16 @@ implementados y probados de punta a punta.** Lo que sigue es Fase 2 (venta a
 PY, abajo) o volver a pulir/corregir cosas de Fase 1 si aparecen mientras se
 usa en el día a día.
 
-**Fase 2 (venta a PY):** inventario de big bags, diseño de blending, lote de venta,
-despacho/recepción en PY, muestreo conjunto, liquidación provisional (90%) y final de
-PY, fijaciones de precio por metal, márgenes por lote de compra/venta.
+**Fase 2 (venta a PY)** — **blending descartado a pedido del usuario**, no se va a
+hacer. Progreso:
+- ~~Inventario de big bags~~ — **hecho** (`/big-bags`, ver arriba).
+- ~~Lote de venta~~ — **hecho** (`/ventas`, ver arriba). Selección manual,
+  mezcla lotes de compra libremente.
+- Despacho del lote de venta + recepción en PY — falta.
+- Muestreo conjunto (ley real del lado de PY) — falta.
+- Liquidación provisional (90%) y final de PY — falta.
+- Fijaciones de precio por metal — falta.
+- Márgenes por lote de compra/venta — falta.
 
 **Fase 3 (después, según lo acordado):** panel de control gerencial, asistente de
 IA, conexión a fuentes de precio pagas (LBMA/LME/Fastmarkets), integración con Nisira
