@@ -79,19 +79,18 @@ una salida o un pesaje oficial **avanza automáticamente** `purchase_lots.status
 el orden y las etiquetas de estado, compartido entre la lista y el detalle.
 
 También en `/lotes/[id]`: **recepción en molino** (supervisor, ubicación,
-incidentes — un solo registro por lote) y **conminución + big bags** (un solo
-registro de conminución por lote — así lo confirmó el usuario, se muele en una
-sola tanda — con big bags cargados uno por uno a medida que salen del molino,
-~1.5 TM cada uno con margen de fallo; se pesan individualmente, no se reparte un
-total). Código de big bag automático `GIN-<CÓDIGO_LOTE>-BBnn` (ej.
-`GIN-BUS-26-05-BB01`), secuencial por lote. Muestra el total cargado en big bags
-vs. lo que declaró el molino (`processed_tons`) con una diferencia resaltada en
-rojo si supera 50 kg — es un chequeo de control, no bloquea nada. Registrar la
-recepción o la conminución también avanza el estado del lote (recibido_molino,
-conminuido).
+incidentes — un solo registro por lote) y **conminución** (un solo registro de
+conminución por lote — se muele en una sola tanda). **Importante, cambió de
+diseño (migración 0017, ver más abajo):** ya no se cargan big bags uno por uno
+con código y peso individual — el peso real de cada bolsón nunca se conoce con
+exactitud (confirmado con el usuario), así que la conminución ahora solo pide
+la **cantidad total de bolsones** (`comminutions.bag_count`, un número). El
+control de peso real pasa a ser el ticket de balanza (con foto adjunta, ver
+Pesajes), no una comparación por bolsón. Registrar la recepción o la
+conminución también avanza el estado del lote (recibido_molino, conminuido).
 
 También **Laboratorio**: un solo resultado por lote (muestra compuesta de todo
-el lote, no por big bag — confirmado con el usuario). Un solo laboratorio por
+el lote, no por bolsón). Un solo laboratorio por
 ahora, sin comparación entre dos laboratorios (si más adelante se manda la
 misma muestra a dos labs, hay que agregar esa lógica). Au/Ag/Pb del
 laboratorio se muestran junto a la ley estimada del lote, con un aviso (no
@@ -156,17 +155,22 @@ borrado manual.
 
 **Fase 2 (venta a PY) — arrancada.** El usuario pidió saltear blending por
 completo. Hecho hasta ahora:
-- **Big bags** (`/big-bags`) — inventario global de todos los bolsones
-  (cualquier lote de compra), filtrable por estado (disponible/reservado/
-  despachado/recibido_py/liquidado). Mismo patrón visual que `/precintos`.
-- **Lotes de venta** (`/ventas`) — se arman a mano: se tildan big bags
-  disponibles de la lista (**pueden ser de distintos lotes de compra**,
-  confirmado con el usuario) y se crea el lote de venta con código
-  automático `VTA-AA-NN` (reusa `next_lot_seq('VTA', año)`, el mismo
-  generador de código de los lotes de compra). Se pueden sacar/agregar big
-  bags mientras el lote está en estado `armado`; borrar el lote libera los
-  bolsones de vuelta a `disponible`. Tabla nueva: `sale_lots` (migración
-  0013), con `sale_lot_id` agregado a `big_bags`.
+- **Bolsones** (`/big-bags`) — **rediseñado en la migración 0017** (ver más
+  abajo): ya no es un inventario de bolsones individuales con código/peso/
+  estado. Ahora es un resumen por lote de compra: cuántos bolsones generó
+  (`comminutions.bag_count`), cuántos ya se asignaron a algún lote de venta,
+  cuántos quedan disponibles. Confirmado con el usuario: el peso individual
+  de un bolsón nunca se conoce con exactitud, y los cálculos (márgenes,
+  asignación a ventas) son por LOTE, no por bolsón — trackear identidad
+  individual era más detalle del que el negocio realmente tiene.
+- **Lotes de venta** (`/ventas`) — se arman indicando, por cada lote de
+  compra que aporta, **cuántos bolsones** van en el despacho (no cuáles
+  puntualmente) — tabla `sale_lot_allocations` (sale_lot_id, purchase_lot_id,
+  bag_count), reemplaza lo que antes era `big_bags.sale_lot_id`. Un lote de
+  venta puede seguir mezclando varios lotes de compra. Código automático
+  `VTA-AA-NN` (reusa `next_lot_seq('VTA', año)`). Se pueden agregar/quitar
+  asignaciones mientras el lote está en estado `armado`; quitar una libera
+  esa cantidad de vuelta a "disponible" en `/big-bags`.
 - `DeleteRowButton` y `ActionButton` se movieron de `lotes/[id]/` a
   `src/components/` porque ahora los usan tanto compra como venta.
 - **Despacho + recepción en PY** (`/ventas/[id]`) — evento único por lote de
@@ -174,13 +178,11 @@ completo. Hecho hasta ahora:
   compra): columnas directas en `sale_lots` (migración 0014). Cada paso
   tiene un botón "Deshacer" que revierte el estado y limpia los campos —
   útil porque es fácil equivocarse la fecha/transportista al cargar.
-  Despachar/recibir sincroniza el estado de todos los big bags del lote
-  (`reservado` → `despachado` → `recibido_py`), así `/big-bags` queda al
-  día. Probado de punta a punta: armado → despachado → recibido en PY,
-  con deshacer en cada paso. La recepción en PY también tiene **peso
-  oficial del trailer** (por lote de venta / camión), comparado contra la
-  suma de big bags que Ginebra ya tenía — mismo control que el pesaje de
-  Trujillo del lado de compra.
+  Probado de punta a punta: armado → despachado → recibido en PY, con
+  deshacer en cada paso. La recepción en PY tiene **peso oficial del
+  trailer** (por lote de venta / camión) — desde la migración 0017 este es
+  **obligatorio** y es la única referencia de peso confiable de un lote de
+  venta (ya no hay peso "declarado" por bolsón contra el cual compararlo).
 - **Muestreo conjunto en PY** (`/muestreo`) — el usuario explicó el proceso
   real: al llegar a Lima se pesan los trailers, se rompen los big bags en
   una plataforma y se **mezclan** — varios lotes de venta se convierten en
@@ -190,9 +192,12 @@ completo. Hecho hasta ahora:
   usuario — así es como funciona en la realidad, no hay selección de a
   uno). El resultado de laboratorio usa los mismos elementos que ya se
   cargan del lado de compra (Au/Ag/Pb + As/Sb/S/humedad). Tabla nueva:
-  `py_sample_batches` (migración 0015), código `MUE-AA-NN`. Se puede
-  deshacer el muestreo (libera los lotes de venta) **solo mientras no
-  tenga resultado de laboratorio cargado** — después de eso es un
+  `py_sample_batches` (migración 0015), código `MUE-AA-NN`. El peso total
+  del muestreo (para tmh de la liquidación) se calcula sumando
+  `py_official_weight_kg` de los lotes de venta agrupados — desde la
+  migración 0017, ya no suma peso de bolsones. Se puede deshacer el
+  muestreo (libera los lotes de venta) **solo mientras no tenga resultado
+  de laboratorio cargado** — después de eso es un
   registro de laboratorio real, no se borra.
 
 **El contrato real con PY** (`PYCP-202656 - XXXXX - AG ORES _Vs 30.06.26 (1).docx`,
@@ -242,15 +247,16 @@ del contrato:
   liquidación calculada sobre ellos (no se puede borrar un registro
   financiero real por accidente) — a propósito, no es un bug.
 
-**Márgenes** (`/margenes`) — reporte de solo lectura, sin tabla nueva ni
-acciones: cruza `lot_settlements.precio_definitivo_total` (costo definitivo
-por lote de compra) contra `py_sample_batches.final_value_total` (ingreso
-final por muestreo de PY), prorrateado por peso a través de cada big bag
-(costo por kg del lote de compra al que pertenece, ingreso por kg del
-muestreo donde terminó). Dos tablas — por lote de compra y por lote de
-venta — con el margen agregado. Un big bag solo entra al cálculo si **ambos**
-lados tienen liquidación definitiva; si falta alguno queda contado aparte
-como "pendiente" (peso) en vez de arrastrar un número incompleto. Con esto
+**Márgenes** (`/margenes`) — reporte de solo lectura (`src/lib/margins.ts`):
+cruza `lot_settlements.precio_definitivo_total` (costo definitivo por lote
+de compra) contra `py_sample_batches.final_value_total` (ingreso final por
+muestreo de PY). **Desde la migración 0017 prorratea por CANTIDAD DE
+BOLSONES** (vía `sale_lot_allocations`), no por peso — costo por bolsón del
+lote de compra al que pertenece, ingreso por bolsón del muestreo donde
+terminó. Dos tablas — por lote de compra y por lote de venta — con el
+margen agregado. Una asignación solo entra al cálculo si **ambos** lados
+tienen liquidación definitiva; si falta alguno queda contado aparte como
+"pendiente" (bolsones) en vez de arrastrar un número incompleto. Con esto
 se cierra Fase 2 completa (sin contar blending, descartado a pedido del
 usuario).
 
@@ -271,7 +277,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0016`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0017`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
@@ -326,6 +332,22 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
   (`final_*`), liquidación provisional (90%, precios promedio 5 días),
   ventana de fijación + fijación por metal (Au/Ag/Pb), liquidación final.
   Números y reglas sacados del contrato real PYCP-202656 (ver arriba).
+- `0017_bag_count_model.sql` — **rediseño grande, no solo columnas nuevas**:
+  dropea la tabla `big_bags` entera (y `seals.big_bag_id`, que nunca tuvo UI)
+  y la reemplaza por `comminutions.bag_count` (cuántos bolsones generó un
+  lote de compra, sin identidad individual) + tabla nueva
+  `sale_lot_allocations` (sale_lot_id, purchase_lot_id, bag_count — cuántos
+  bolsones de cada lote de compra van en cada lote de venta). Motivo: el
+  usuario explicó que el peso real de un bolsón nunca se conoce con
+  exactitud (se controla contra el ticket de balanza, no bolsón por bolsón)
+  y que los cálculos de negocio son por lote, no por bolsón individual — el
+  diseño anterior (`big_bags` con código/peso/estado propio) era más detalle
+  del que el negocio realmente maneja. Todo lo que antes sumaba
+  `big_bags.weight_kg` (comparación de peso en `/ventas/[id]`, tmh de la
+  liquidación de PY en `muestreo/actions.ts`, prorrateo de `/margenes`) pasó
+  a usar `sale_lots.py_official_weight_kg` (peso oficial del trailer,
+  **ahora obligatorio** al recibir en PY) o cantidad de bolsones, según
+  corresponda. Ver el detalle de cada pantalla más arriba.
 
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
@@ -346,8 +368,9 @@ menos el margen objetivo" (confirmado con el usuario).
    segunda guía/factura — si hace falta algo más formal que "cargar un
    pesaje más con motivo", avisar.
 4. ~~Recepción en molino~~ — **hecho** (`/lotes/[id]`, ver arriba).
-5. ~~Conminución~~ — **hecho** (`/lotes/[id]`, ver arriba). Big bags con código
-   `GIN-<LOTE>-BBnn` y comparación contra lo declarado por el molino.
+5. ~~Conminución~~ — **hecho** (`/lotes/[id]`, ver arriba). Desde la migración
+   0017 solo pide la cantidad de bolsones generados, no un registro por
+   bolsón (ver "Bolsones" más arriba).
 6. ~~Muestreo y laboratorio~~ — **hecho** (`/lotes/[id]`, ver arriba). Sin
    tolerancia entre dos laboratorios (no aplica todavía, según el usuario).
 7. ~~Valorización definitiva de compra~~ — **hecho** (`/lotes/[id]`, ver
