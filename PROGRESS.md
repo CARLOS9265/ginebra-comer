@@ -385,9 +385,52 @@ hacer. Progreso:
 del usuario). Con esto, Fase 1 y Fase 2 están implementadas de punta a
 punta.
 
-**Fase 3 (después, según lo acordado):** panel de control gerencial, asistente de
-IA, conexión a fuentes de precio pagas (LBMA/LME/Fastmarkets), integración con Nisira
-(mencionada por el usuario, sin detallar todavía qué es exactamente).
+**Fase 3 — arrancada.** Progreso:
+- ~~Asistente de IA~~ — **hecho** (`/asistente`, ver abajo).
+- Panel de control gerencial — falta.
+- Conexión a fuentes de precio pagas (LBMA/LME/Fastmarkets) — falta.
+- Integración con Nisira — falta (mencionada por el usuario, sin detallar
+  todavía qué es exactamente).
+
+**Asistente de IA** (`/asistente`) — chat que responde preguntas en lenguaje
+natural sobre lotes de compra/venta, muestreos, márgenes, precios y
+programación, más recomendaciones de fecha de fijación y alertas. Usa
+**Google Gemini** (nivel gratuito, elegido a pedido del usuario para no
+requerir tarjeta) en vez de la API de Anthropic.
+- `src/lib/assistant/gemini.ts` — llamada REST directa a la API de Gemini
+  (sin SDK, mismo criterio que `live-metal-prices.ts`). Modelo
+  `gemini-3.6-flash` — **importante:** los modelos Gemini con razonamiento
+  devuelven un `thoughtSignature` junto a cada `functionCall`; hay que
+  reenviarlo tal cual en el siguiente turno o la API devuelve 400
+  ("Function call is missing a thought_signature"). Por eso
+  `generateContent()` devuelve `modelParts` (las parts crudas de la
+  respuesta) para reinyectarlas sin reconstruirlas a mano.
+- `src/lib/assistant/tools.ts` — 10 herramientas de solo lectura (buscar/
+  detalle de lotes de compra y venta, muestreos, precios recientes,
+  márgenes, calendario, alertas). Corren con el cliente de Supabase del
+  usuario logueado, así que RLS filtra automáticamente qué puede ver cada
+  rol — no hace falta lógica de permisos aparte para el asistente.
+- `src/lib/assistant/alerts.ts` — chequeos **deterministas** (sin IA):
+  ventanas de fijación por vencer/vencidas, diferencia de peso guía vs.
+  oficial (compra y recepción en PY) mayor a 2%, despachos a PY sin
+  confirmar recepción hace +10 días, liquidaciones de compra sin pagar
+  hace +15 días, programación de volquetes vencida sin actualizar. La IA
+  solo resume esta lista, no la calcula.
+- `src/lib/margins.ts` — la lógica de `/margenes` se extrajo a una función
+  compartida (`computeMargins`) para que la pantalla y la herramienta del
+  asistente usen exactamente el mismo cálculo.
+- Sin persistencia de conversación (historial vive solo en el estado del
+  navegador, se pierde al recargar) — decisión deliberada para no sumar
+  una tabla nueva en la v1.
+- Probado de punta a punta en el navegador con datos reales: preguntas
+  sobre alertas/agenda y sobre lotes sin liquidar devolvieron respuestas
+  correctas cruzando varias tablas.
+
+**Nota de seguridad de esta sesión:** al configurar `GEMINI_API_KEY` el
+usuario pegó por error la contraseña de `SUPABASE_DB_URL` en el chat varias
+veces (confundiendo ambas credenciales). Se limpió el `.env.local` y se
+recomendó rotar esa contraseña en el dashboard de Supabase — **verificar
+que se haya hecho**, no quedó confirmado en la sesión.
 
 **Pendiente transversal:** la bitácora de auditoría (`audit_log`) existe en la base
 pero nada escribe ahí todavía — el pedido original quería que toda edición quede
