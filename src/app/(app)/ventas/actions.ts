@@ -140,6 +140,13 @@ function str(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
 
+function num(formData: FormData, key: string): number | null {
+  const raw = formData.get(key);
+  if (raw === null || raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function dispatchSaleLot(
   saleLotId: string,
   _prevState: SaleLotFormState,
@@ -247,6 +254,7 @@ export async function receiveSaleLotAtPY(
       received_at_py: receivedAt ? new Date(receivedAt).toISOString() : new Date().toISOString(),
       py_warehouse: str(formData, "py_warehouse") || null,
       py_received_by: str(formData, "py_received_by") || null,
+      py_official_weight_kg: num(formData, "py_official_weight_kg"),
       updated_by: profile.id,
     })
     .eq("id", saleLotId);
@@ -283,6 +291,7 @@ export async function undoPyReception(saleLotId: string) {
       received_at_py: null,
       py_warehouse: null,
       py_received_by: null,
+      py_official_weight_kg: null,
       updated_by: profile.id,
     })
     .eq("id", saleLotId);

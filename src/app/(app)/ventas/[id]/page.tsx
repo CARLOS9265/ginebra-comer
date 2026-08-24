@@ -24,7 +24,7 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
   const { data: saleLot } = await supabase
     .from("sale_lots")
     .select(
-      "id, code, status, notes, created_at, dispatched_at, dispatch_carrier, dispatch_truck_plate, received_at_py, py_warehouse, py_received_by",
+      "id, code, status, notes, created_at, dispatched_at, dispatch_carrier, dispatch_truck_plate, received_at_py, py_warehouse, py_received_by, py_official_weight_kg, sample_batch_id, py_sample_batches(code)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -48,6 +48,11 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
   ]);
 
   const totalKg = bags?.reduce((sum, b) => sum + (b.weight_kg ?? 0), 0) ?? 0;
+  const sampleBatch = Array.isArray(saleLot.py_sample_batches)
+    ? saleLot.py_sample_batches[0]
+    : saleLot.py_sample_batches;
+  const weightDiffKg =
+    saleLot.py_official_weight_kg != null ? Number((saleLot.py_official_weight_kg - totalKg).toFixed(2)) : null;
 
   const availableRows = (availableBags ?? []).map((b) => {
     const purchaseLot = Array.isArray(b.purchase_lots) ? b.purchase_lots[0] : b.purchase_lots;
@@ -161,8 +166,25 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
           {saleLot.received_at_py ? (
             <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
               <div className="text-slate-600">
-                {saleLot.py_received_by ?? "Sin datos de quién recibió"} · {fmtDate(saleLot.received_at_py)}
-                {saleLot.py_warehouse && ` · ${saleLot.py_warehouse}`}
+                <div>
+                  {saleLot.py_received_by ?? "Sin datos de quién recibió"} · {fmtDate(saleLot.received_at_py)}
+                  {saleLot.py_warehouse && ` · ${saleLot.py_warehouse}`}
+                </div>
+                {saleLot.py_official_weight_kg != null && (
+                  <div
+                    className={`mt-1 text-xs ${
+                      weightDiffKg === 0
+                        ? "text-slate-500"
+                        : weightDiffKg != null && weightDiffKg < 0
+                          ? "text-red-600"
+                          : "text-emerald-700"
+                    }`}
+                  >
+                    Peso oficial trailer: {fmtKg(saleLot.py_official_weight_kg)} · Diferencia vs. big bags:{" "}
+                    {weightDiffKg != null && weightDiffKg > 0 ? "+" : ""}
+                    {weightDiffKg?.toLocaleString("es-PE")} kg
+                  </div>
+                )}
               </div>
               {saleLot.status === "recibido_py" && (
                 <ActionButton
@@ -179,6 +201,20 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
           ) : (
             <p className="text-sm text-slate-500">—</p>
           )}
+        </div>
+      )}
+
+      {sampleBatch && (
+        <div>
+          <h2 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Muestreo conjunto
+          </h2>
+          <p className="text-sm text-slate-600">
+            Este lote se mezcló con otros para el muestreo:{" "}
+            <Link href={`/muestreo/${saleLot.sample_batch_id}`} className="text-gold-700 hover:underline">
+              {sampleBatch.code}
+            </Link>
+          </p>
         </div>
       )}
     </div>

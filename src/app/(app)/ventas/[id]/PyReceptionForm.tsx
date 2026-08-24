@@ -18,9 +18,13 @@ export function PyReceptionForm({ saleLotId }: { saleLotId: string }) {
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Almacén / planta de PY</span>
           <input name="py_warehouse" className={inputClass} />
         </label>
-        <label className="col-span-2 block">
+        <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Recibido por (PY)</span>
           <input name="py_received_by" className={inputClass} />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium text-slate-500">Peso oficial del trailer (kg)</span>
+          <input name="py_official_weight_kg" type="number" step="0.01" className={inputClass} />
         </label>
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
