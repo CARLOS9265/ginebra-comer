@@ -17,11 +17,3 @@ export const SALE_LOT_STATUS_LABELS: Record<SaleLotStatus, string> = {
   liquidado_provisional: "Liquidado (provisional)",
   liquidado_final: "Liquidado (final)",
 };
-
-export const BIG_BAG_STATUS_LABELS: Record<string, string> = {
-  disponible: "Disponible",
-  reservado: "Reservado",
-  despachado: "Despachado",
-  recibido_py: "Recibido en PY",
-  liquidado: "Liquidado",
-};

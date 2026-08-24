@@ -24,7 +24,7 @@ export function PyReceptionForm({ saleLotId }: { saleLotId: string }) {
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Peso oficial del trailer (kg)</span>
-          <input name="py_official_weight_kg" type="number" step="0.01" className={inputClass} />
+          <input name="py_official_weight_kg" type="number" step="0.01" required className={inputClass} />
         </label>
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}

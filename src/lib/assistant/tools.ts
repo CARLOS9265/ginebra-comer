@@ -26,7 +26,7 @@ export const TOOL_DECLARATIONS: GeminiFunctionDeclaration[] = [
   {
     name: "detalle_lote_compra",
     description:
-      "Trae el detalle completo de un lote de compra por su código: transporte, pesajes, recepción en molino, big bags generados, análisis de laboratorio y liquidación definitiva si existe.",
+      "Trae el detalle completo de un lote de compra por su código: transporte, pesajes, recepción en molino, cantidad de bolsones generados, análisis de laboratorio y liquidación definitiva si existe.",
     parameters: {
       type: "object",
       properties: { codigo: { type: "string", description: "Código del lote, ej. BUS-26-01" } },
@@ -36,7 +36,7 @@ export const TOOL_DECLARATIONS: GeminiFunctionDeclaration[] = [
   {
     name: "buscar_lotes_venta",
     description:
-      "Busca lotes de venta a PY. Devuelve código, estado, peso total en big bags, si fue despachado/recibido/muestreado.",
+      "Busca lotes de venta a PY. Devuelve código, estado, cantidad de bolsones incluidos, si fue despachado/recibido/muestreado.",
     parameters: {
       type: "object",
       properties: {
@@ -52,7 +52,7 @@ export const TOOL_DECLARATIONS: GeminiFunctionDeclaration[] = [
   {
     name: "detalle_lote_venta",
     description:
-      "Trae el detalle completo de un lote de venta por su código: big bags incluidos (y de qué lote de compra viene cada uno), despacho, recepción en PY, y a qué muestreo conjunto pertenece si ya fue agrupado.",
+      "Trae el detalle completo de un lote de venta por su código: cuántos bolsones aporta cada lote de compra, despacho, recepción en PY (con peso oficial), y a qué muestreo conjunto pertenece si ya fue agrupado.",
     parameters: {
       type: "object",
       properties: { codigo: { type: "string", description: "Código del lote de venta, ej. VTA-26-01" } },
@@ -149,7 +149,7 @@ export async function runTool(
       const { data: lot } = await supabase
         .from("purchase_lots")
         .select(
-          "id, code, status, estimated_weight_tmh, loaded_at, truck_plate, carrier_name, providers(name, code), transport_events(departed_at, carrier_name, incidents), weighings(type, net_weight, weighed_at, reason), mill_receptions(received_at, incidents), big_bags(code, weight_kg, status), lab_analyses(au_gt, ag_gt, pb_pct, humidity_pct, lab_name), lot_settlements(precio_definitivo_total, precio_definitivo_per_tmh, saldo_pendiente, paid_at)",
+          "id, code, status, estimated_weight_tmh, loaded_at, truck_plate, carrier_name, providers(name, code), transport_events(departed_at, carrier_name, incidents), weighings(type, net_weight, weighed_at, reason), mill_receptions(received_at, incidents), comminutions(bag_count), lab_analyses(au_gt, ag_gt, pb_pct, humidity_pct, lab_name), lot_settlements(precio_definitivo_total, precio_definitivo_per_tmh, saldo_pendiente, paid_at)",
         )
         .eq("code", codigo)
         .maybeSingle();
@@ -161,7 +161,9 @@ export async function runTool(
       const limite = Math.min(Number(args.limite) || 20, 50);
       let q = supabase
         .from("sale_lots")
-        .select("id, code, status, dispatched_at, received_at_py, sample_batch_id, big_bags(weight_kg)")
+        .select(
+          "id, code, status, dispatched_at, received_at_py, py_official_weight_kg, sample_batch_id, sale_lot_allocations(bag_count)",
+        )
         .order("created_at", { ascending: false })
         .limit(limite);
       if (typeof args.estado === "string" && args.estado) q = q.eq("status", args.estado);
@@ -171,7 +173,8 @@ export async function runTool(
       return (data ?? []).map((l) => ({
         codigo: l.code,
         estado: l.status,
-        peso_total_kg: arr(l.big_bags).reduce((s, b) => s + (b.weight_kg ?? 0), 0),
+        cantidad_bolsones: arr(l.sale_lot_allocations).reduce((s, a) => s + (a.bag_count ?? 0), 0),
+        peso_oficial_py_kg: l.py_official_weight_kg,
         despachado: l.dispatched_at,
         recibido_en_py: l.received_at_py,
         tiene_muestreo: l.sample_batch_id != null,
@@ -183,15 +186,14 @@ export async function runTool(
       const { data: lot } = await supabase
         .from("sale_lots")
         .select(
-          "id, code, status, dispatched_at, dispatch_carrier, dispatch_truck_plate, received_at_py, py_warehouse, py_official_weight_kg, sample_batch_id, py_sample_batches(code), big_bags(code, weight_kg, purchase_lots(code))",
+          "id, code, status, dispatched_at, dispatch_carrier, dispatch_truck_plate, received_at_py, py_warehouse, py_official_weight_kg, sample_batch_id, py_sample_batches(code), sale_lot_allocations(bag_count, purchase_lots(code))",
         )
         .eq("code", codigo)
         .maybeSingle();
       if (!lot) return { error: `No se encontró el lote de venta "${codigo}".` };
-      const bags = arr(lot.big_bags).map((b) => ({
-        codigo: b.code,
-        peso_kg: b.weight_kg,
-        lote_de_compra: arr(b.purchase_lots)[0]?.code ?? null,
+      const allocations = arr(lot.sale_lot_allocations).map((a) => ({
+        cantidad_bolsones: a.bag_count,
+        lote_de_compra: arr(a.purchase_lots)[0]?.code ?? null,
       }));
       return {
         codigo: lot.code,
@@ -203,8 +205,8 @@ export async function runTool(
         almacen_py: lot.py_warehouse,
         peso_oficial_py_kg: lot.py_official_weight_kg,
         muestreo: arr(lot.py_sample_batches)[0]?.code ?? null,
-        big_bags: bags,
-        peso_declarado_kg: bags.reduce((s, b) => s + (b.peso_kg ?? 0), 0),
+        bolsones_por_lote_de_compra: allocations,
+        cantidad_bolsones_total: allocations.reduce((s, a) => s + (a.cantidad_bolsones ?? 0), 0),
       };
     }
 
@@ -212,13 +214,13 @@ export async function runTool(
       const limite = Math.min(Number(args.limite) || 20, 50);
       const { data, error } = await supabase
         .from("py_sample_batches")
-        .select("id, code, created_at, prov_au_gt, prov_value_total, final_value_total, sale_lots(big_bags(weight_kg))")
+        .select("id, code, created_at, prov_au_gt, prov_value_total, final_value_total, sale_lots(py_official_weight_kg)")
         .order("created_at", { ascending: false })
         .limit(limite);
       if (error) return { error: error.message };
       return (data ?? []).map((b) => {
         const lots = arr(b.sale_lots);
-        const pesoTotal = lots.reduce((s, l) => s + arr(l.big_bags).reduce((s2, bag) => s2 + (bag.weight_kg ?? 0), 0), 0);
+        const pesoTotal = lots.reduce((s, l) => s + (l.py_official_weight_kg ?? 0), 0);
         return {
           codigo: b.code,
           creado: b.created_at,
@@ -287,14 +289,14 @@ export async function runTool(
         margen_total_usd: result.totalMargin,
         por_lote_de_compra: result.byPurchaseLot.map(([, v]) => ({
           codigo: v.code,
-          peso_total_kg: v.totalKg,
-          peso_pendiente_kg: v.pendingKg,
+          cantidad_bolsones: v.totalBags,
+          bolsones_pendientes: v.pendingBags,
           margen_usd: v.hasComplete ? v.margin : null,
         })),
         por_lote_de_venta: result.bySaleLot.map(([, v]) => ({
           codigo: v.code,
-          peso_total_kg: v.totalKg,
-          peso_pendiente_kg: v.pendingKg,
+          cantidad_bolsones: v.totalBags,
+          bolsones_pendientes: v.pendingBags,
           margen_usd: v.hasComplete ? v.margin : null,
         })),
       };

@@ -2,15 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SALE_LOT_STATUS_LABELS } from "@/lib/sale-lot-status";
+import { getAvailablePurchaseLots } from "../available-bags";
 import { DeleteRowButton } from "@/components/DeleteRowButton";
 import { ActionButton } from "@/components/ActionButton";
-import {
-  removeBigBagFromSaleLot,
-  deleteSaleLot,
-  undoDispatch,
-  undoPyReception,
-} from "../actions";
-import { AddBigBagsSection } from "./AddBigBagsSection";
+import { removeAllocation, deleteSaleLot, undoDispatch, undoPyReception } from "../actions";
+import { AllocationForm } from "./AllocationForm";
 import { DispatchForm } from "./DispatchForm";
 import { PyReceptionForm } from "./PyReceptionForm";
 
@@ -31,33 +27,19 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
 
   if (!saleLot) notFound();
 
-  const [{ data: bags }, { data: availableBags }] = await Promise.all([
+  const [{ data: allocations }, availableLots] = await Promise.all([
     supabase
-      .from("big_bags")
-      .select("id, code, weight_kg, purchase_lots(id, code)")
+      .from("sale_lot_allocations")
+      .select("id, bag_count, purchase_lots(id, code)")
       .eq("sale_lot_id", id)
-      .order("code"),
-    saleLot.status === "armado"
-      ? supabase
-          .from("big_bags")
-          .select("id, code, weight_kg, purchase_lots(code)")
-          .eq("status", "disponible")
-          .is("sale_lot_id", null)
-          .order("code")
-      : Promise.resolve({ data: [] }),
+      .order("created_at"),
+    saleLot.status === "armado" ? getAvailablePurchaseLots(supabase) : Promise.resolve([]),
   ]);
 
-  const totalKg = bags?.reduce((sum, b) => sum + (b.weight_kg ?? 0), 0) ?? 0;
+  const totalBags = (allocations ?? []).reduce((sum, a) => sum + a.bag_count, 0);
   const sampleBatch = Array.isArray(saleLot.py_sample_batches)
     ? saleLot.py_sample_batches[0]
     : saleLot.py_sample_batches;
-  const weightDiffKg =
-    saleLot.py_official_weight_kg != null ? Number((saleLot.py_official_weight_kg - totalKg).toFixed(2)) : null;
-
-  const availableRows = (availableBags ?? []).map((b) => {
-    const purchaseLot = Array.isArray(b.purchase_lots) ? b.purchase_lots[0] : b.purchase_lots;
-    return { id: b.id, code: b.code, weightKg: b.weight_kg, purchaseLotCode: purchaseLot?.code ?? "—" };
-  });
 
   return (
     <div className="space-y-8">
@@ -69,8 +51,8 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
           <div>
             <h1 className="text-xl font-semibold text-slate-900">{saleLot.code}</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Armado el {new Date(saleLot.created_at).toLocaleDateString("es-PE")} · {bags?.length ?? 0} big bags ·{" "}
-              {fmtKg(totalKg)}
+              Armado el {new Date(saleLot.created_at).toLocaleDateString("es-PE")} · {totalBags}{" "}
+              {totalBags === 1 ? "bolsón" : "bolsones"}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -80,7 +62,7 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
             {saleLot.status === "armado" && (
               <DeleteRowButton
                 action={deleteSaleLot.bind(null, saleLot.id)}
-                confirmText="¿Eliminar este lote de venta? Los big bags vuelven a quedar disponibles."
+                confirmText="¿Eliminar este lote de venta? Los bolsones vuelven a quedar disponibles."
               />
             )}
           </div>
@@ -90,34 +72,34 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
 
       <div>
         <h2 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Big bags en este lote
+          Bolsones en este lote
         </h2>
-        {!bags || bags.length === 0 ? (
-          <p className="text-sm text-slate-500">Todavía no hay big bags asignados.</p>
+        {!allocations || allocations.length === 0 ? (
+          <p className="text-sm text-slate-500">Todavía no hay bolsones asignados.</p>
         ) : (
           <div className="space-y-2">
-            {bags.map((b) => {
-              const purchaseLot = Array.isArray(b.purchase_lots) ? b.purchase_lots[0] : b.purchase_lots;
+            {allocations.map((a) => {
+              const purchaseLot = Array.isArray(a.purchase_lots) ? a.purchase_lots[0] : a.purchase_lots;
               return (
                 <div
-                  key={b.id}
+                  key={a.id}
                   className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-2.5 text-sm"
                 >
                   <div className="text-slate-400">
-                    <span className="font-mono">{b.code}</span> · {fmtKg(b.weight_kg)}
-                    {purchaseLot && (
-                      <>
-                        {" · "}
-                        <Link href={`/lotes/${purchaseLot.id}`} className="text-gold-700 hover:underline">
-                          {purchaseLot.code}
-                        </Link>
-                      </>
+                    <span className="font-mono text-slate-700">{a.bag_count}</span>{" "}
+                    {a.bag_count === 1 ? "bolsón" : "bolsones"} de{" "}
+                    {purchaseLot ? (
+                      <Link href={`/lotes/${purchaseLot.id}`} className="text-gold-700 hover:underline">
+                        {purchaseLot.code}
+                      </Link>
+                    ) : (
+                      "—"
                     )}
                   </div>
                   {saleLot.status === "armado" && (
                     <DeleteRowButton
-                      action={removeBigBagFromSaleLot.bind(null, saleLot.id, b.id)}
-                      confirmText={`¿Quitar el big bag ${b.code} de este lote de venta?`}
+                      action={removeAllocation.bind(null, saleLot.id, a.id)}
+                      confirmText="¿Quitar esta asignación? Los bolsones vuelven a quedar disponibles."
                     />
                   )}
                 </div>
@@ -127,9 +109,7 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
         )}
       </div>
 
-      {saleLot.status === "armado" && (
-        <AddBigBagsSection saleLotId={saleLot.id} bags={availableRows} />
-      )}
+      {saleLot.status === "armado" && <AllocationForm saleLotId={saleLot.id} lots={availableLots} />}
 
       <div>
         <h2 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -170,21 +150,10 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
                   {saleLot.py_received_by ?? "Sin datos de quién recibió"} · {fmtDate(saleLot.received_at_py)}
                   {saleLot.py_warehouse && ` · ${saleLot.py_warehouse}`}
                 </div>
-                {saleLot.py_official_weight_kg != null && (
-                  <div
-                    className={`mt-1 text-xs ${
-                      weightDiffKg === 0
-                        ? "text-slate-500"
-                        : weightDiffKg != null && weightDiffKg < 0
-                          ? "text-red-600"
-                          : "text-emerald-700"
-                    }`}
-                  >
-                    Peso oficial trailer: {fmtKg(saleLot.py_official_weight_kg)} · Diferencia vs. big bags:{" "}
-                    {weightDiffKg != null && weightDiffKg > 0 ? "+" : ""}
-                    {weightDiffKg?.toLocaleString("es-PE")} kg
-                  </div>
-                )}
+                <div className="mt-1 text-xs text-slate-500">
+                  Peso oficial trailer: {fmtKg(saleLot.py_official_weight_kg)} — este es el peso de
+                  referencia del lote (no se pesa bolsón por bolsón).
+                </div>
               </div>
               {saleLot.status === "recibido_py" && (
                 <ActionButton

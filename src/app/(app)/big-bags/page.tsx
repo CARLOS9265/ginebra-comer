@@ -1,51 +1,61 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { BIG_BAG_STATUS_LABELS } from "@/lib/sale-lot-status";
 
-const STATUS_COLORS: Record<string, string> = {
-  disponible: "bg-slate-100 text-slate-400",
-  reservado: "bg-sky-100 text-sky-700",
-  despachado: "bg-amber-100 text-amber-700",
-  recibido_py: "bg-gold-100 text-gold-700",
-  liquidado: "bg-purple-100 text-purple-700",
-};
-
-const fmtKg = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("es-PE")} kg`);
-
-const TABS = ["disponible", "reservado", "despachado", "recibido_py", "liquidado", "todos"] as const;
-
-export default async function BigBagsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ estado?: string }>;
-}) {
-  const { estado } = await searchParams;
+export default async function BagInventoryPage() {
   const supabase = await createClient();
 
-  let query = supabase
-    .from("big_bags")
-    .select(
-      "id, code, weight_kg, storage_location, status, purchase_lots(id, code), sale_lots(id, code)",
-    )
-    .order("code");
+  const [{ data: comminutions }, { data: allocations }] = await Promise.all([
+    supabase
+      .from("comminutions")
+      .select("purchase_lot_id, bag_count, purchase_lots(id, code, providers(name))")
+      .not("bag_count", "is", null),
+    supabase.from("sale_lot_allocations").select("purchase_lot_id, bag_count"),
+  ]);
 
-  if (estado && estado !== "todos") {
-    query = query.eq("status", estado);
-  } else if (!estado) {
-    query = query.eq("status", "disponible");
+  const allocatedByLot = new Map<string, number>();
+  for (const a of allocations ?? []) {
+    allocatedByLot.set(a.purchase_lot_id, (allocatedByLot.get(a.purchase_lot_id) ?? 0) + a.bag_count);
   }
 
-  const { data: bags } = await query;
+  const totalByLot = new Map<
+    string,
+    { code: string; lotId: string; providerName: string | null; total: number }
+  >();
+  for (const c of comminutions ?? []) {
+    const lot = Array.isArray(c.purchase_lots) ? c.purchase_lots[0] : c.purchase_lots;
+    if (!lot) continue;
+    const provider = Array.isArray(lot.providers) ? lot.providers[0] : lot.providers;
+    const existing = totalByLot.get(c.purchase_lot_id);
+    totalByLot.set(c.purchase_lot_id, {
+      code: lot.code,
+      lotId: lot.id,
+      providerName: provider?.name ?? null,
+      total: (existing?.total ?? 0) + (c.bag_count ?? 0),
+    });
+  }
 
-  const totalKg = bags?.reduce((sum, b) => sum + (b.weight_kg ?? 0), 0) ?? 0;
+  const rows = [...totalByLot.entries()]
+    .map(([purchaseLotId, v]) => ({
+      purchaseLotId,
+      ...v,
+      allocated: allocatedByLot.get(purchaseLotId) ?? 0,
+      available: v.total - (allocatedByLot.get(purchaseLotId) ?? 0),
+    }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+
+  const totals = rows.reduce(
+    (acc, r) => ({ total: acc.total + r.total, allocated: acc.allocated + r.allocated, available: acc.available + r.available }),
+    { total: 0, allocated: 0, available: 0 },
+  );
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Big bags</h1>
+          <h1 className="text-xl font-semibold text-slate-900">Bolsones</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Inventario de bolsones generados en conminución, listos para armar un lote de venta.
+            Inventario de bolsones generados por lote de compra, y cuántos ya están asignados a un
+            despacho a PY.
           </p>
         </div>
         <Link
@@ -56,25 +66,9 @@ export default async function BigBagsPage({
         </Link>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-1">
-        {TABS.map((t) => (
-          <Link
-            key={t}
-            href={t === "disponible" ? "/big-bags" : `/big-bags?estado=${t}`}
-            className={`rounded-lg px-3 py-1.5 text-xs ${
-              (estado ?? "disponible") === t
-                ? "bg-navy-800 text-white"
-                : "bg-white text-slate-500 hover:bg-slate-100"
-            }`}
-          >
-            {t === "todos" ? "Todos" : BIG_BAG_STATUS_LABELS[t]}
-          </Link>
-        ))}
-      </div>
-
-      {!bags || bags.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-          No hay big bags en este estado.
+          Todavía no hay lotes de compra con bolsones cargados.
         </div>
       ) : (
         <>
@@ -82,58 +76,38 @@ export default async function BigBagsPage({
             <table className="w-full text-sm">
               <thead className="bg-white text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Código</th>
                   <th className="px-4 py-3">Lote de compra</th>
-                  <th className="px-4 py-3">Lote de venta</th>
-                  <th className="px-4 py-3 text-right">Peso</th>
-                  <th className="px-4 py-3">Ubicación</th>
-                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3">Proveedor</th>
+                  <th className="px-4 py-3 text-right">Generados</th>
+                  <th className="px-4 py-3 text-right">Asignados a venta</th>
+                  <th className="px-4 py-3 text-right">Disponibles</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
-                {bags.map((b) => {
-                  const purchaseLot = Array.isArray(b.purchase_lots) ? b.purchase_lots[0] : b.purchase_lots;
-                  const saleLot = Array.isArray(b.sale_lots) ? b.sale_lots[0] : b.sale_lots;
-                  return (
-                    <tr key={b.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-mono text-slate-700">{b.code}</td>
-                      <td className="px-4 py-3 text-slate-400">
-                        {purchaseLot ? (
-                          <Link href={`/lotes/${purchaseLot.id}`} className="hover:text-gold-800 hover:underline">
-                            {purchaseLot.code}
-                          </Link>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-400">
-                        {saleLot ? (
-                          <Link href={`/ventas/${saleLot.id}`} className="hover:text-gold-800 hover:underline">
-                            {saleLot.code}
-                          </Link>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-400">{fmtKg(b.weight_kg)}</td>
-                      <td className="px-4 py-3 text-slate-500">{b.storage_location ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs ${
-                            STATUS_COLORS[b.status] ?? "bg-slate-100 text-slate-400"
-                          }`}
-                        >
-                          {BIG_BAG_STATUS_LABELS[b.status] ?? b.status}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+              <tbody className="divide-y divide-slate-200">
+                {rows.map((r) => (
+                  <tr key={r.purchaseLotId} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 font-mono text-slate-700">
+                      <Link href={`/lotes/${r.lotId}`} className="hover:text-gold-800 hover:underline">
+                        {r.code}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-slate-400">{r.providerName ?? "—"}</td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-400">{r.total}</td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-400">{r.allocated}</td>
+                    <td
+                      className={`px-4 py-3 text-right font-mono ${
+                        r.available > 0 ? "text-gold-700" : "text-slate-400"
+                      }`}
+                    >
+                      {r.available}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
           <p className="mt-3 text-xs text-slate-500">
-            {bags.length} big bag{bags.length === 1 ? "" : "s"} · Total {fmtKg(totalKg)}
+            {totals.total} generados · {totals.allocated} asignados · {totals.available} disponibles
           </p>
         </>
       )}

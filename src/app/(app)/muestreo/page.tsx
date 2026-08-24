@@ -12,21 +12,18 @@ export default async function SampleBatchesPage() {
     supabase
       .from("py_sample_batches")
       .select(
-        "id, code, created_at, prov_au_gt, final_value_total, sale_lots(id, big_bags(weight_kg))",
+        "id, code, created_at, prov_au_gt, final_value_total, sale_lots(id, py_official_weight_kg)",
       )
       .order("created_at", { ascending: false }),
     supabase
       .from("sale_lots")
-      .select("id, code, big_bags(weight_kg)")
+      .select("id, code, py_official_weight_kg")
       .eq("status", "recibido_py")
       .is("sample_batch_id", null)
       .order("code"),
   ]);
 
-  const pendingTotalKg = (pendingLots ?? []).reduce((sum, l) => {
-    const bags = Array.isArray(l.big_bags) ? l.big_bags : [];
-    return sum + bags.reduce((s, b) => s + (b.weight_kg ?? 0), 0);
-  }, 0);
+  const pendingTotalKg = (pendingLots ?? []).reduce((sum, l) => sum + (l.py_official_weight_kg ?? 0), 0);
 
   return (
     <div>
@@ -57,6 +54,7 @@ export default async function SampleBatchesPage() {
             </div>
             <p className="mt-3 text-xs text-slate-500">
               {pendingLots.length} lote{pendingLots.length === 1 ? "" : "s"} · {fmtKg(pendingTotalKg)} en total
+              (peso oficial en PY)
             </p>
             <div className="mt-4">
               <ActionButton
@@ -89,10 +87,7 @@ export default async function SampleBatchesPage() {
             <tbody className="divide-y divide-slate-200">
               {batches.map((batch) => {
                 const lots = Array.isArray(batch.sale_lots) ? batch.sale_lots : [];
-                const totalKg = lots.reduce((sum, l) => {
-                  const bags = Array.isArray(l.big_bags) ? l.big_bags : [];
-                  return sum + bags.reduce((s, b) => s + (b.weight_kg ?? 0), 0);
-                }, 0);
+                const totalKg = lots.reduce((sum, l) => sum + (l.py_official_weight_kg ?? 0), 0);
                 return (
                   <tr key={batch.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-mono text-slate-700">

@@ -206,6 +206,7 @@ export async function createComminution(
     processed_tons: num(formData, "processed_tons"),
     mill_invoice_number: str(formData, "mill_invoice_number") || null,
     tariff_pen_per_ton: num(formData, "tariff_pen_per_ton"),
+    bag_count: num(formData, "bag_count"),
     created_by: profile.id,
   });
 
@@ -225,73 +226,6 @@ export async function deleteComminution(lotId: string, comminutionId: string) {
 
   const supabase = await createClient();
   const { error } = await supabase.from("comminutions").delete().eq("id", comminutionId);
-  if (error) {
-    if (error.code === "23503") {
-      return { error: "No se puede eliminar: todavía tiene big bags cargados. Borrá esos primero." };
-    }
-    return { error: `No se pudo eliminar: ${error.message}` };
-  }
-  revalidatePath(`/lotes/${lotId}`);
-}
-
-export async function addBigBag(
-  lotId: string,
-  comminutionId: string,
-  _prevState: LogisticsFormState,
-  formData: FormData,
-): Promise<LogisticsFormState> {
-  const { profile } = await getCurrentUser();
-  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
-    return { error: "Tu rol no puede registrar big bags." };
-  }
-
-  const weight = num(formData, "weight_kg");
-  const quantity = Math.max(1, Math.trunc(num(formData, "quantity") ?? 1));
-  const supabase = await createClient();
-
-  const { data: lot } = await supabase
-    .from("purchase_lots")
-    .select("code")
-    .eq("id", lotId)
-    .maybeSingle();
-  if (!lot) return { error: "No se encontró el lote." };
-
-  const { count } = await supabase
-    .from("big_bags")
-    .select("id", { count: "exact", head: true })
-    .eq("purchase_lot_id", lotId);
-
-  const startSeq = (count ?? 0) + 1;
-  const rows = Array.from({ length: quantity }, (_, i) => ({
-    code: `GIN-${lot.code}-BB${String(startSeq + i).padStart(2, "0")}`,
-    purchase_lot_id: lotId,
-    comminution_id: comminutionId,
-    weight_kg: weight,
-    storage_location: str(formData, "storage_location") || null,
-    created_by: profile.id,
-  }));
-
-  const { error } = await supabase.from("big_bags").insert(rows);
-
-  if (error) {
-    if (error.code === "23505") {
-      return { error: "Se generó un código duplicado, probá guardar de nuevo." };
-    }
-    return { error: `No se pudo guardar: ${error.message}` };
-  }
-
-  revalidatePath(`/lotes/${lotId}`);
-  return null;
-}
-
-export async function deleteBigBag(lotId: string, bagId: string) {
-  const { profile } = await getCurrentUser();
-  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
-    return { error: "Tu rol no puede eliminar este registro." };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("big_bags").delete().eq("id", bagId);
   if (error) return { error: `No se pudo eliminar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
 }
@@ -512,6 +446,56 @@ export async function uploadWarehousePhoto(
 }
 
 export async function deleteWarehousePhoto(lotId: string, docId: string, storagePath: string) {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede eliminar este registro." };
+  }
+
+  const supabase = await createClient();
+  await supabase.storage.from("lot-photos").remove([storagePath]);
+  const { error } = await supabase.from("documents").delete().eq("id", docId);
+  if (error) return { error: `No se pudo eliminar: ${error.message}` };
+  revalidatePath(`/lotes/${lotId}`);
+}
+
+export async function uploadWeighingTicketPhoto(
+  lotId: string,
+  weighingId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede subir esta foto." };
+  }
+
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Elegí una foto para subir." };
+  }
+
+  const supabase = await createClient();
+  const path = `${lotId}/tickets/${weighingId}/${Date.now()}-${file.name}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("lot-photos")
+    .upload(path, file, { contentType: file.type || "image/jpeg" });
+  if (uploadError) return { error: `No se pudo subir la foto: ${uploadError.message}` };
+
+  const { error: docError } = await supabase.from("documents").insert({
+    entity_type: "weighing",
+    entity_id: weighingId,
+    doc_type: "ticket_balanza",
+    storage_path: path,
+    uploaded_by: profile.id,
+  });
+  if (docError) return { error: `No se pudo guardar el registro: ${docError.message}` };
+
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function deleteWeighingTicketPhoto(lotId: string, docId: string, storagePath: string) {
   const { profile } = await getCurrentUser();
   if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
     return { error: "Tu rol no puede eliminar este registro." };

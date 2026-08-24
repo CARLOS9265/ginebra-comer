@@ -32,15 +32,11 @@ export default async function SampleBatchDetailPage({ params }: { params: Promis
 
   const { data: saleLots } = await supabase
     .from("sale_lots")
-    .select("id, code, py_official_weight_kg, big_bags(weight_kg)")
+    .select("id, code, py_official_weight_kg")
     .eq("sample_batch_id", id)
     .order("code");
 
-  const totalKg = (saleLots ?? []).reduce((sum, l) => {
-    const bags = Array.isArray(l.big_bags) ? l.big_bags : [];
-    return sum + bags.reduce((s, b) => s + (b.weight_kg ?? 0), 0);
-  }, 0);
-  const totalOfficialKg = (saleLots ?? []).reduce((sum, l) => sum + (l.py_official_weight_kg ?? 0), 0);
+  const totalKg = (saleLots ?? []).reduce((sum, l) => sum + (l.py_official_weight_kg ?? 0), 0);
 
   const hasProvAssay = batch.prov_au_gt != null;
   const hasProvLiquidation = batch.prov_value_total != null;
@@ -60,8 +56,7 @@ export default async function SampleBatchDetailPage({ params }: { params: Promis
             <h1 className="text-xl font-semibold text-slate-900">{batch.code}</h1>
             <p className="mt-1 text-sm text-slate-500">
               Creado el {new Date(batch.created_at).toLocaleDateString("es-PE")} · {saleLots?.length ?? 0} lotes
-              de venta · {fmtKg(totalKg)}
-              {totalOfficialKg > 0 && ` (${fmtKg(totalOfficialKg)} según peso oficial)`}
+              de venta · {fmtKg(totalKg)} (peso oficial en PY)
             </p>
           </div>
           {!hasProvAssay && (

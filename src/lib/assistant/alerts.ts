@@ -80,28 +80,7 @@ export async function computeAlerts(supabase: SupabaseClient): Promise<Alert[]> 
     }
   }
 
-  // 3. Peso oficial en PY muy distinto a la suma de big bags declarada.
-  const { data: saleLots } = await supabase
-    .from("sale_lots")
-    .select("id, code, py_official_weight_kg, big_bags(weight_kg)")
-    .not("py_official_weight_kg", "is", null);
-
-  for (const lot of saleLots ?? []) {
-    const bags = Array.isArray(lot.big_bags) ? lot.big_bags : [];
-    const declared = bags.reduce((s, b) => s + (b.weight_kg ?? 0), 0);
-    if (declared === 0 || lot.py_official_weight_kg == null) continue;
-    const diffPct = (Math.abs(lot.py_official_weight_kg - declared) / declared) * 100;
-    if (diffPct >= 2) {
-      alerts.push({
-        severity: diffPct >= 5 ? "alta" : "media",
-        title: `Lote de venta ${lot.code}: diferencia de peso declarado vs. oficial en PY (${diffPct.toFixed(1)}%)`,
-        detail: `Declarado ${declared} kg vs. oficial en PY ${lot.py_official_weight_kg} kg.`,
-        link: `/ventas/${lot.id}`,
-      });
-    }
-  }
-
-  // 4. Lotes de venta despachados hace más de 10 días sin recepción confirmada en PY.
+  // 3. Lotes de venta despachados hace más de 10 días sin recepción confirmada en PY.
   const { data: dispatched } = await supabase
     .from("sale_lots")
     .select("id, code, dispatched_at")
@@ -121,7 +100,7 @@ export async function computeAlerts(supabase: SupabaseClient): Promise<Alert[]> 
     }
   }
 
-  // 5. Liquidación de compra calculada pero sin pagar hace más de 15 días.
+  // 4. Liquidación de compra calculada pero sin pagar hace más de 15 días.
   const { data: unpaidSettlements } = await supabase
     .from("lot_settlements")
     .select("id, purchase_lot_id, created_at, purchase_lots(code)")
@@ -140,7 +119,7 @@ export async function computeAlerts(supabase: SupabaseClient): Promise<Alert[]> 
     }
   }
 
-  // 6. Volquetes programados cuya fecha ya pasó sin actualizar el estado.
+  // 5. Volquetes programados cuya fecha ya pasó sin actualizar el estado.
   const { data: overdueSchedule } = await supabase
     .from("truck_schedule")
     .select("id, scheduled_date, type, destination, providers(name)")

@@ -265,14 +265,11 @@ export async function saveProvisionalLiquidation(
 
   const { data: saleLots } = await supabase
     .from("sale_lots")
-    .select("id, big_bags(weight_kg)")
+    .select("id, py_official_weight_kg")
     .eq("sample_batch_id", batchId);
 
-  const totalKg = (saleLots ?? []).reduce((sum, l) => {
-    const bags = Array.isArray(l.big_bags) ? l.big_bags : [];
-    return sum + bags.reduce((s: number, b: { weight_kg: number | null }) => s + (b.weight_kg ?? 0), 0);
-  }, 0);
-  if (totalKg <= 0) return { error: "No se pudo calcular el peso total del muestreo." };
+  const totalKg = (saleLots ?? []).reduce((sum, l) => sum + (l.py_official_weight_kg ?? 0), 0);
+  if (totalKg <= 0) return { error: "No se pudo calcular el peso total del muestreo (peso oficial en PY)." };
   const tmh = totalKg / 1000;
 
   const prices = await fiveDayAveragePrices(supabase, invoiceDate);
@@ -556,14 +553,11 @@ export async function saveFinalLiquidation(batchId: string) {
 
   const { data: saleLots } = await supabase
     .from("sale_lots")
-    .select("id, big_bags(weight_kg)")
+    .select("id, py_official_weight_kg")
     .eq("sample_batch_id", batchId);
 
-  const totalKg = (saleLots ?? []).reduce((sum, l) => {
-    const bags = Array.isArray(l.big_bags) ? l.big_bags : [];
-    return sum + bags.reduce((s: number, b: { weight_kg: number | null }) => s + (b.weight_kg ?? 0), 0);
-  }, 0);
-  if (totalKg <= 0) return { error: "No se pudo calcular el peso total del muestreo." };
+  const totalKg = (saleLots ?? []).reduce((sum, l) => sum + (l.py_official_weight_kg ?? 0), 0);
+  if (totalKg <= 0) return { error: "No se pudo calcular el peso total del muestreo (peso oficial en PY)." };
   const tmh = totalKg / 1000;
 
   const { data: settings } = await supabase.from("contract_settings").select("*").eq("id", 1).maybeSingle();

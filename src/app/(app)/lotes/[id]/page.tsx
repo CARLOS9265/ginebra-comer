@@ -6,10 +6,10 @@ import { TransportForm } from "./TransportForm";
 import { WeighingForm } from "./WeighingForm";
 import { MillReceptionForm } from "./MillReceptionForm";
 import { ComminutionForm } from "./ComminutionForm";
-import { BigBagForm } from "./BigBagForm";
 import { LabAnalysisForm } from "./LabAnalysisForm";
 import { SettlementForm } from "./SettlementForm";
 import { WarehousePhotoForm } from "./WarehousePhotoForm";
+import { WeighingTicketPhotoForm } from "./WeighingTicketPhotoForm";
 import { DeleteRowButton } from "@/components/DeleteRowButton";
 import { ActionButton } from "@/components/ActionButton";
 import {
@@ -17,10 +17,10 @@ import {
   deleteWeighing,
   deleteMillReception,
   deleteComminution,
-  deleteBigBag,
   deleteLabAnalysis,
   deleteSettlement,
   deleteWarehousePhoto,
+  deleteWeighingTicketPhoto,
   markSettlementPaid,
   closeLot,
 } from "./actions";
@@ -89,7 +89,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       supabase
         .from("comminutions")
         .select(
-          "id, started_at, finished_at, processed_tons, mill_invoice_number, tariff_pen_per_ton",
+          "id, started_at, finished_at, processed_tons, mill_invoice_number, tariff_pen_per_ton, bag_count",
         )
         .eq("purchase_lot_id", id)
         .order("created_at", { ascending: false }),
@@ -127,17 +127,37 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   const reception = receptions?.[0];
   const comminution = comminutions?.[0];
 
-  const { data: bigBags } = comminution
-    ? await supabase
-        .from("big_bags")
-        .select("id, code, weight_kg, storage_location")
-        .eq("purchase_lot_id", id)
-        .order("code")
-    : { data: null };
+  const { data: ticketDocs } =
+    weighings && weighings.length > 0
+      ? await supabase
+          .from("documents")
+          .select("id, entity_id, storage_path, uploaded_at")
+          .eq("entity_type", "weighing")
+          .eq("doc_type", "ticket_balanza")
+          .in(
+            "entity_id",
+            weighings.map((w) => w.id),
+          )
+          .order("uploaded_at", { ascending: false })
+      : { data: null };
 
-  const bagsTotalKg = bigBags?.reduce((sum, b) => sum + (b.weight_kg ?? 0), 0) ?? 0;
-  const processedKg = comminution?.processed_tons != null ? comminution.processed_tons * 1000 : null;
-  const bagsDiffKg = processedKg != null && bigBags && bigBags.length > 0 ? Number((bagsTotalKg - processedKg).toFixed(2)) : null;
+  let ticketPhotosByWeighing = new Map<
+    string,
+    { id: string; url: string | null; storagePath: string }[]
+  >();
+  if (ticketDocs && ticketDocs.length > 0) {
+    const { data: signedTickets } = await supabase.storage
+      .from("lot-photos")
+      .createSignedUrls(
+        ticketDocs.map((d) => d.storage_path),
+        3600,
+      );
+    ticketDocs.forEach((d, i) => {
+      const list = ticketPhotosByWeighing.get(d.entity_id) ?? [];
+      list.push({ id: d.id, url: signedTickets?.[i]?.signedUrl ?? null, storagePath: d.storage_path });
+      ticketPhotosByWeighing.set(d.entity_id, list);
+    });
+  }
 
   const officialWeightHint =
     oficial?.net_weight != null
@@ -275,26 +295,53 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       <Section title="Pesajes">
         {weighings && weighings.length > 0 && (
           <div className="mb-4 space-y-2">
-            {weighings.map((w) => (
-              <div
-                key={w.id}
-                className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm"
-              >
-                <div className="space-y-0.5 text-slate-400">
-                  <div className="font-medium">{WEIGHING_TYPE_LABELS[w.type] ?? w.type}</div>
-                  <div className="text-xs text-slate-500">
-                    Neto {fmtKg(w.net_weight)}
-                    {w.ticket_number && ` · Ticket ${w.ticket_number}`}
-                    {w.weighed_at && ` · ${fmtDate(w.weighed_at)}`}
+            {weighings.map((w) => {
+              const ticketPhotos = ticketPhotosByWeighing.get(w.id) ?? [];
+              return (
+                <div key={w.id} className="rounded-lg border border-slate-200 p-3 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-0.5 text-slate-400">
+                      <div className="font-medium">{WEIGHING_TYPE_LABELS[w.type] ?? w.type}</div>
+                      <div className="text-xs text-slate-500">
+                        Neto {fmtKg(w.net_weight)}
+                        {w.ticket_number && ` · Ticket ${w.ticket_number}`}
+                        {w.weighed_at && ` · ${fmtDate(w.weighed_at)}`}
+                      </div>
+                      {w.reason && <div className="text-xs text-amber-700">Motivo: {w.reason}</div>}
+                    </div>
+                    <DeleteRowButton
+                      action={deleteWeighing.bind(null, lot.id, w.id)}
+                      confirmText="¿Eliminar este pesaje?"
+                    />
                   </div>
-                  {w.reason && <div className="text-xs text-amber-700">Motivo: {w.reason}</div>}
+                  <div className="mt-3 flex flex-wrap items-end gap-3">
+                    {ticketPhotos.map((p) => (
+                      <div key={p.id} className="relative">
+                        {p.url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={p.url}
+                            alt="Foto del ticket de balanza"
+                            className="h-20 w-20 rounded-lg border border-slate-200 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-slate-200 text-xs text-slate-400">
+                            Sin vista previa
+                          </div>
+                        )}
+                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
+                          <DeleteRowButton
+                            action={deleteWeighingTicketPhoto.bind(null, lot.id, p.id, p.storagePath)}
+                            confirmText="¿Eliminar esta foto del ticket?"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <WeighingTicketPhotoForm lotId={lot.id} weighingId={w.id} />
+                  </div>
                 </div>
-                <DeleteRowButton
-                  action={deleteWeighing.bind(null, lot.id, w.id)}
-                  confirmText="¿Eliminar este pesaje?"
-                />
-              </div>
-            ))}
+              );
+            })}
             {diffKg != null && (
               <div
                 className={`rounded-lg border px-3 py-2 text-xs ${
@@ -341,65 +388,28 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
       <Section title="Conminución y big bags">
         {comminution ? (
-          <div className="space-y-4">
-            <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
-              <div className="space-y-0.5 text-slate-400">
-                <div>
-                  {fmtDate(comminution.started_at) ?? "Sin fecha de inicio"}
-                  {comminution.finished_at && ` → ${fmtDate(comminution.finished_at)}`}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {comminution.processed_tons != null && `Procesado (molino): ${comminution.processed_tons} TM · `}
-                  {comminution.tariff_pen_per_ton != null && `Tarifa S/ ${comminution.tariff_pen_per_ton}/TM`}
-                  {comminution.mill_invoice_number && ` · Factura ${comminution.mill_invoice_number}`}
-                </div>
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
+            <div className="space-y-0.5 text-slate-400">
+              <div>
+                {fmtDate(comminution.started_at) ?? "Sin fecha de inicio"}
+                {comminution.finished_at && ` → ${fmtDate(comminution.finished_at)}`}
               </div>
-              <DeleteRowButton
-                action={deleteComminution.bind(null, lot.id, comminution.id)}
-                confirmText="¿Eliminar esta conminución? También podés dejar los big bags y borrar solo el encabezado."
-              />
+              <div className="text-xs text-slate-500">
+                {comminution.processed_tons != null && `Procesado (molino): ${comminution.processed_tons} TM · `}
+                {comminution.tariff_pen_per_ton != null && `Tarifa S/ ${comminution.tariff_pen_per_ton}/TM`}
+                {comminution.mill_invoice_number && ` · Factura ${comminution.mill_invoice_number}`}
+              </div>
+              <div className="text-xs text-slate-500">
+                {comminution.bag_count != null
+                  ? `${comminution.bag_count} ${comminution.bag_count === 1 ? "bolsón generado" : "bolsones generados"}`
+                  : "Cantidad de bolsones sin datos"}{" "}
+                — el peso real se controla con el ticket de balanza (sección Pesajes), no bolsón por bolsón.
+              </div>
             </div>
-
-            <div>
-              <h3 className="mb-2 text-xs font-medium text-slate-500">Big bags generados</h3>
-              {bigBags && bigBags.length > 0 ? (
-                <div className="mb-3 space-y-2">
-                  {bigBags.map((b) => (
-                    <div
-                      key={b.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-2.5 text-sm"
-                    >
-                      <div className="text-slate-400">
-                        <span className="font-mono">{b.code}</span> · {fmtKg(b.weight_kg)}
-                        {b.storage_location && ` · ${b.storage_location}`}
-                      </div>
-                      <DeleteRowButton
-                        action={deleteBigBag.bind(null, lot.id, b.id)}
-                        confirmText={`¿Eliminar el big bag ${b.code}?`}
-                      />
-                    </div>
-                  ))}
-                  {bagsDiffKg != null && (
-                    <div
-                      className={`rounded-lg border px-3 py-2 text-xs ${
-                        bagsDiffKg === 0
-                          ? "border-slate-200 text-slate-500"
-                          : Math.abs(bagsDiffKg) <= 50
-                            ? "border-gold-200 bg-gold-50 text-gold-700"
-                            : "border-red-200 bg-red-50 text-red-600"
-                      }`}
-                    >
-                      Total en big bags: {fmtKg(bagsTotalKg)} · Diferencia vs. procesado (molino):{" "}
-                      {bagsDiffKg > 0 ? "+" : ""}
-                      {bagsDiffKg.toLocaleString("es-PE")} kg
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="mb-3 text-sm text-slate-500">Todavía no se cargó ningún big bag.</p>
-              )}
-              <BigBagForm lotId={lot.id} comminutionId={comminution.id} />
-            </div>
+            <DeleteRowButton
+              action={deleteComminution.bind(null, lot.id, comminution.id)}
+              confirmText="¿Eliminar esta conminución?"
+            />
           </div>
         ) : (
           <ComminutionForm lotId={lot.id} officialWeightHint={officialWeightHint} />
