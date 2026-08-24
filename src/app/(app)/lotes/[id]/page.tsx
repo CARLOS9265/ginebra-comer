@@ -9,7 +9,9 @@ import { ComminutionForm } from "./ComminutionForm";
 import { BigBagForm } from "./BigBagForm";
 import { LabAnalysisForm } from "./LabAnalysisForm";
 import { SettlementForm } from "./SettlementForm";
+import { WarehousePhotoForm } from "./WarehousePhotoForm";
 import { DeleteRowButton } from "./DeleteRowButton";
+import { ActionButton } from "./ActionButton";
 import {
   deleteTransportEvent,
   deleteWeighing,
@@ -18,6 +20,9 @@ import {
   deleteBigBag,
   deleteLabAnalysis,
   deleteSettlement,
+  deleteWarehousePhoto,
+  markSettlementPaid,
+  closeLot,
 } from "./actions";
 import { estimateLot, type ContractSettings } from "@/lib/contract";
 
@@ -63,6 +68,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
     { data: labAnalyses },
     { data: settlements },
     { data: settings },
+    { data: photoDocs },
   ] = await Promise.all([
       supabase
         .from("transport_events")
@@ -97,11 +103,18 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       supabase
         .from("lot_settlements")
         .select(
-          "id, tmh_used, precio_definitivo_per_tmh, precio_definitivo_total, provisional_pagado_total, saldo_pendiente, valor_py_per_tmh, costos_per_tmh, ganancia_objetivo_usd, final_invoice_number, credit_debit_note_number, notes, created_at",
+          "id, tmh_used, precio_definitivo_per_tmh, precio_definitivo_total, provisional_pagado_total, saldo_pendiente, valor_py_per_tmh, costos_per_tmh, ganancia_objetivo_usd, final_invoice_number, credit_debit_note_number, notes, paid_at, created_at",
         )
         .eq("purchase_lot_id", id)
         .order("created_at", { ascending: false }),
       supabase.from("contract_settings").select("*").eq("id", 1).maybeSingle(),
+      supabase
+        .from("documents")
+        .select("id, storage_path, uploaded_at")
+        .eq("entity_type", "purchase_lot")
+        .eq("entity_id", id)
+        .eq("doc_type", "foto_almacen")
+        .order("uploaded_at", { ascending: false }),
     ]);
 
   const inicial = weighings?.find((w) => w.type === "inicial");
@@ -166,6 +179,24 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
   const previewProvisionalTotal = (lot.provisional_price_per_tmh ?? 0) * (settlementTmh ?? 0);
   const previewSaldo = settlementPreview ? settlementPreview.precioMaximoCompraTotal - previewProvisionalTotal : null;
+
+  const isPaid = settlement?.paid_at != null;
+
+  let photos: { id: string; url: string | null; uploadedAt: string; storagePath: string }[] = [];
+  if (photoDocs && photoDocs.length > 0) {
+    const { data: signed } = await supabase.storage
+      .from("lot-photos")
+      .createSignedUrls(
+        photoDocs.map((d) => d.storage_path),
+        3600,
+      );
+    photos = photoDocs.map((d, i) => ({
+      id: d.id,
+      url: signed?.[i]?.signedUrl ?? null,
+      uploadedAt: d.uploaded_at,
+      storagePath: d.storage_path,
+    }));
+  }
 
   return (
     <div className="space-y-8">
@@ -465,6 +496,69 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
               />
             </div>
             <SettlementForm lotId={lot.id} />
+          </div>
+        )}
+      </Section>
+
+      <Section title="Traslado a almacén">
+        {photos.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-3">
+            {photos.map((p) => (
+              <div key={p.id} className="relative">
+                {p.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.url}
+                    alt="Foto de traslado a almacén"
+                    className="h-28 w-28 rounded-lg border border-slate-800 object-cover"
+                  />
+                ) : (
+                  <div className="flex h-28 w-28 items-center justify-center rounded-lg border border-slate-800 text-xs text-slate-600">
+                    Sin vista previa
+                  </div>
+                )}
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
+                  <DeleteRowButton
+                    action={deleteWarehousePhoto.bind(null, lot.id, p.id, p.storagePath)}
+                    confirmText="¿Eliminar esta foto?"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <WarehousePhotoForm lotId={lot.id} />
+      </Section>
+
+      <Section title="Cierre de compra">
+        {!settlement ? (
+          <p className="text-sm text-slate-500">
+            Falta la liquidación definitiva para poder cerrar la compra.
+          </p>
+        ) : lot.status === "cerrado" ? (
+          <p className="text-sm text-teal-400">Compra cerrada.</p>
+        ) : !isPaid ? (
+          <div className="space-y-3">
+            <p className="text-sm text-slate-400">
+              Saldo pendiente: {fmtUSD(Math.abs(settlement.saldo_pendiente), 0)}{" "}
+              {settlement.saldo_pendiente >= 0 ? "a favor del proveedor" : "a favor de Ginebra"}.
+            </p>
+            <ActionButton
+              action={markSettlementPaid.bind(null, lot.id, settlement.id)}
+              label="Marcar como pagado"
+              pendingLabel="Guardando..."
+              confirmText="¿Confirmás que el saldo de este lote ya se pagó?"
+            />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-teal-400">Pagado el {fmtDate(settlement.paid_at)}.</p>
+            <ActionButton
+              action={closeLot.bind(null, lot.id)}
+              label="Cerrar compra"
+              pendingLabel="Cerrando..."
+              confirmText="¿Cerrar la compra de este lote? Es el paso final del flujo de compra."
+            />
           </div>
         )}
       </Section>

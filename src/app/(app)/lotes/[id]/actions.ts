@@ -472,3 +472,92 @@ export async function deleteSettlement(lotId: string, settlementId: string) {
   if (error) return { error: `No se pudo eliminar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
 }
+
+export async function uploadWarehousePhoto(
+  lotId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede registrar el traslado a almacén." };
+  }
+
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Elegí una foto para subir." };
+  }
+
+  const supabase = await createClient();
+  const path = `${lotId}/${Date.now()}-${file.name}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("lot-photos")
+    .upload(path, file, { contentType: file.type || "image/jpeg" });
+  if (uploadError) return { error: `No se pudo subir la foto: ${uploadError.message}` };
+
+  const { error: docError } = await supabase.from("documents").insert({
+    entity_type: "purchase_lot",
+    entity_id: lotId,
+    doc_type: "foto_almacen",
+    storage_path: path,
+    uploaded_by: profile.id,
+  });
+  if (docError) return { error: `No se pudo guardar el registro: ${docError.message}` };
+
+  await advanceLotStatus(supabase, lotId, "en_almacen", profile.id);
+
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function deleteWarehousePhoto(lotId: string, docId: string, storagePath: string) {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede eliminar este registro." };
+  }
+
+  const supabase = await createClient();
+  await supabase.storage.from("lot-photos").remove([storagePath]);
+  const { error } = await supabase.from("documents").delete().eq("id", docId);
+  if (error) return { error: `No se pudo eliminar: ${error.message}` };
+  revalidatePath(`/lotes/${lotId}`);
+}
+
+export async function markSettlementPaid(lotId: string, settlementId: string) {
+  const { profile } = await getCurrentUser();
+  if (!profile || !SETTLEMENT_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede marcar la liquidación como pagada." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("lot_settlements")
+    .update({ paid_at: new Date().toISOString(), paid_by: profile.id })
+    .eq("id", settlementId);
+  if (error) return { error: `No se pudo actualizar: ${error.message}` };
+  revalidatePath(`/lotes/${lotId}`);
+}
+
+export async function closeLot(lotId: string) {
+  const { profile } = await getCurrentUser();
+  if (!profile || !SETTLEMENT_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede cerrar la compra." };
+  }
+
+  const supabase = await createClient();
+  const { data: settlement } = await supabase
+    .from("lot_settlements")
+    .select("paid_at")
+    .eq("purchase_lot_id", lotId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!settlement?.paid_at) {
+    return { error: "No se puede cerrar: la liquidación todavía no está marcada como pagada." };
+  }
+
+  await advanceLotStatus(supabase, lotId, "cerrado", profile.id);
+  revalidatePath(`/lotes/${lotId}`);
+}
