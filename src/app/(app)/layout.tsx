@@ -4,16 +4,16 @@ import { signOut } from "@/app/login/actions";
 
 const NAV_LINKS = [
   { href: "/", label: "Inicio" },
-  { href: "/asistente", label: "Asistente" },
-  { href: "/lotes", label: "Lotes de compra" },
+  { href: "/proveedores", label: "Proveedores" },
+  { href: "/calendario", label: "Programación" },
   { href: "/precintos", label: "Precintos" },
+  { href: "/lotes", label: "Lotes de compra" },
   { href: "/big-bags", label: "Bolsones" },
   { href: "/ventas", label: "Ventas a PY" },
   { href: "/muestreo", label: "Muestreo PY" },
   { href: "/margenes", label: "Márgenes" },
-  { href: "/calendario", label: "Programación" },
   { href: "/precios", label: "Precios" },
-  { href: "/proveedores", label: "Proveedores" },
+  { href: "/asistente", label: "Asistente" },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
