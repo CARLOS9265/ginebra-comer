@@ -388,7 +388,16 @@ punta.
 **Fase 3 — arrancada.** Progreso:
 - ~~Asistente de IA~~ — **hecho** (`/asistente`, ver abajo).
 - Panel de control gerencial — falta.
-- Conexión a fuentes de precio pagas (LBMA/LME/Fastmarkets) — falta.
+- Conexión a fuentes de precio pagas (LBMA/LME/Fastmarkets) — **bloqueada,
+  esperando que el usuario contrate el servicio.** Se revisó el contrato real
+  (cláusula 4.1): la fuente NO es una elección libre, ya está definida ahí —
+  plata "LBMA Spot Price", oro "LBMA Au Am/Pm Gold Price", plomo "LME
+  Settlement", las tres publicadas en Metal Bulletin (hoy parte de
+  **Fastmarkets**). El usuario confirmó que todavía no tiene nada contratado.
+  Cuando lo consiga, conectar según el formato que entreguen (API/archivo/
+  portal) — `daily_metal_prices` ya guarda el snapshot diario de forma
+  agnóstica a la fuente, así que cambiarla no debería tocar el resto de la
+  app (mismo patrón que `live-metal-prices.ts` hoy con inversoro.es).
 - Integración con Nisira — falta (mencionada por el usuario, sin detallar
   todavía qué es exactamente).
 
