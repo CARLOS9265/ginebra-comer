@@ -119,6 +119,26 @@ Ojo con dos cosas que se descubrieron construyendo esto:
   que el botón no hacía nada. Ya está resuelto: ahora se muestra el motivo
   debajo del botón.
 
+También **Traslado a almacén** y **Cierre de compra** — con esto se completó
+el flujo de compra entero (Fase 1, ver "Qué falta" más abajo). Traslado a
+almacén es solo evidencia fotográfica (confirmado con el usuario, sin
+formulario): sube a un bucket privado de Supabase Storage (`lot-photos`) y
+queda registrada en la tabla genérica `documents` ya existente
+(`entity_type='purchase_lot'`, `doc_type='foto_almacen'`); se muestra con URLs
+firmadas (1 hora) porque el bucket no es público. Subir la primera foto avanza
+el lote a `en_almacen`. El cierre de compra es manual y **solo se habilita si
+la liquidación ya está marcada como pagada** (`lot_settlements.paid_at`,
+seteado con un botón "Marcar como pagado" — no hay fecha editable, es "ahora").
+No hay forma de reabrir un lote cerrado desde la UI a propósito. Migración
+0012: bucket + políticas de Storage, `DELETE` para `documents` (tenía
+SELECT/INSERT/UPDATE desde 0001 pero le faltaba, mismo patrón de siempre), y
+las columnas `paid_at`/`paid_by` en `lot_settlements`.
+
+**Con esto, los 9 puntos de la Fase 1 (compra) están completos** — probado de
+punta a punta: lote → precintos → transporte → pesaje → molino → conminución →
+laboratorio → valorización → almacén → cierre, cada paso avanzando el estado
+del lote correctamente.
+
 **Programación / calendario** (`/calendario`) — grilla mensual, dos tipos de
 programación de volquete: *compra* (llegada de mina, celeste) y *despacho* (venta a
 PY en Lima, violeta), con estado (programado/confirmado/completado/cancelado) y
@@ -141,7 +161,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0011`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0012`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
@@ -177,6 +197,11 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
   definitiva + liquidación al proveedor). También con DELETE desde el
   arranque. Roles de escritura distintos al resto: compras/contabilidad/
   gerencia/administrador (no operaciones/calidad).
+- `0012_warehouse_and_payment.sql` — bucket privado de Storage `lot-photos` +
+  políticas de RLS sobre `storage.objects`, `DELETE` para `documents`
+  (tenía SELECT/INSERT/UPDATE desde 0001 pero no DELETE), y columnas
+  `paid_at`/`paid_by` en `lot_settlements` (para poder cerrar la compra
+  solo cuando el saldo esté pagado).
 
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
@@ -205,15 +230,21 @@ menos el margen objetivo" (confirmado con el usuario).
    arriba). `contract_settings` / `lib/contract.ts` **sí es** para esto (no
    solo para la venta a PY — confirmado con el usuario, corrigiendo lo que
    decía antes esta nota).
-8. ~~Adelanto y liquidación del proveedor~~ — **hecho en su mayor parte**,
-   junto con el punto 7 (mismo registro `lot_settlements`: precio final,
-   saldo pendiente, N° de factura final, N° de nota de crédito/débito).
-   Falta: llevar cuenta de si el saldo ya se pagó de verdad (hoy es un
-   cálculo, no un estado de "pagado/pendiente"), y separar el "adelanto"
-   real (`advance_pct` del lote, campo que existe pero no se usa en ningún
-   cálculo todavía) si en algún momento se empieza a pagar por partes en vez
-   del 100% del provisional de una vez.
-9. Traslado al almacén de Ginebra + cierre de compra.
+8. ~~Adelanto y liquidación del proveedor~~ — **hecho** (`/lotes/[id]`, ver
+   arriba: mismo registro `lot_settlements` del punto 7 — precio final,
+   saldo pendiente, N° de factura final, N° de nota de crédito/débito, y
+   ahora también `paid_at`/`paid_by` para saber si el saldo ya se pagó de
+   verdad). El campo `advance_pct` del lote se sacó del formulario (a
+   pedido del usuario, no se usaba en ningún cálculo) — hoy el pago
+   provisional se asume 100% de una vez, no por partes.
+9. ~~Traslado al almacén de Ginebra + cierre de compra~~ — **hecho**
+   (`/lotes/[id]`, ver arriba). Traslado es solo foto de evidencia; cierre
+   solo se habilita si la liquidación está pagada.
+
+**Fase 1 (compra) completa — los 9 puntos del pedido original están
+implementados y probados de punta a punta.** Lo que sigue es Fase 2 (venta a
+PY, abajo) o volver a pulir/corregir cosas de Fase 1 si aparecen mientras se
+usa en el día a día.
 
 **Fase 2 (venta a PY):** inventario de big bags, diseño de blending, lote de venta,
 despacho/recepción en PY, muestreo conjunto, liquidación provisional (90%) y final de
