@@ -195,15 +195,56 @@ completo. Hecho hasta ahora:
   tenga resultado de laboratorio cargado** — después de eso es un
   registro de laboratorio real, no se borra.
 
-**Ojo con un archivo que apareció en la carpeta del proyecto:**
-`PYCP-202656 - XXXXX - AG ORES _Vs 30.06.26 (1).docx` — parece ser el
-contrato real con PY. **No está en git** (a propósito, no se subió) — si
-hace falta leerlo para sacar números reales de alguna fórmula, pedirle
-permiso al usuario primero, es un documento comercial sensible.
+**El contrato real con PY** (`PYCP-202656 - XXXXX - AG ORES _Vs 30.06.26 (1).docx`,
+en la carpeta del proyecto, **no está en git a propósito** — es un documento
+comercial sensible, no se sube) **se leyó con permiso del usuario** y confirmó
+que `contract_settings` ya tenía los números reales del contrato (no eran
+de prueba): Ag 72.5%/74.5% (banda 900 g/t), Au 68.5%/70.5% (banda 6 g/t), Pb
+60% con descuento previo de 3.5%, merma 0.30%. El "lote" que menciona el
+contrato para ensayes ("lote por lote para plata y oro") es, según el
+usuario, la carga mensual completa — coincide con como ya funciona
+`/muestreo` (todo mezclado, un solo resultado), no hizo falta cambiar nada
+ahí.
 
-**Falta de Fase 2** (sin blending, por pedido del usuario): liquidación
-provisional (90%) y final de PY, fijaciones de precio por metal, márgenes
-por lote de compra/venta.
+**Liquidación de PY** (`/muestreo/[id]`) — construido directamente del texto
+del contrato:
+- **Ensaye provisional** (renombrado desde el resultado único que había
+  antes, prefijo `prov_`) — laboratorio local, rápido (cláusula 11.1).
+- **Liquidación provisional (90%)** — el usuario pidió ser fiel al contrato:
+  el precio de cada metal es el **promedio de los últimos 5 días** de
+  `daily_metal_prices` anteriores a la fecha de factura (no el precio del
+  día, cláusula 5.1). Con poco historial usa los días que haya (se degrada
+  bien, no rompe). El pago es 90% del valor estimado total (`adelanto_py_pct`
+  de `contract_settings`, que ya estaba en la base sin usar — resultó ser
+  exactamente esto). Botón para marcar como pagado.
+- **Ensaye final** — conjunto (Ginebra + PY), laboratorio internacional
+  (Alex Stewart o Alfred H Knight, cláusula 11.2). Campos `final_*`
+  paralelos a los `prov_*`.
+- **Ventana de fijación** — 30 días calendario desde el lunes de la semana
+  siguiente a la entrega ("M+1", cláusula 8.1), calculada sola al crear el
+  muestreo (usando la fecha de recepción en PY más antigua de los lotes
+  agrupados) pero **editable** — es mi interpretación de un texto de
+  contrato ambiguo, así que si no coincide con la práctica real se puede
+  corregir a mano sin tocar código.
+- **Fijación por metal** — Au, Ag y Pb se fijan de forma independiente
+  (fecha + precio) dentro de la ventana. Si la ventana venció sin fijar, un
+  botón "Fijar con cierre de ventana" toma el precio de `daily_metal_prices`
+  más cercano al último día de la ventana (cláusula 8.1, PY fija si el
+  proveedor no lo hizo). Se puede deshacer una fijación.
+- **Liquidación final** — reusa `estimateLot()` (la misma fórmula ya
+  verificada del lado de compra) con la ley final y los tres precios
+  fijados; el saldo resta el pago provisional ya hecho. Botón para marcar
+  como pagado.
+- Probado de punta a punta con números reales del contrato: los cálculos
+  cierran exactos (ej. $2,988 valor 100% → $2,689 provisional 90% →
+  $2,909 final → $220 de saldo a favor de Ginebra).
+- Los borrados de ensaye/muestreo están bloqueados una vez que hay una
+  liquidación calculada sobre ellos (no se puede borrar un registro
+  financiero real por accidente) — a propósito, no es un bug.
+
+**Falta de Fase 2** (sin blending, por pedido del usuario): márgenes por
+lote de compra/venta (comparar lo pagado al proveedor vs. lo cobrado a PY,
+cruzando por los big bags de cada lote de venta).
 
 **Precios internacionales** (`/precios`) — oro y plata se leen **en vivo** de
 inversoro.es (la fuente que pidió el usuario) en cada carga de página. Plomo se
@@ -222,7 +263,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0015`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0016`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
@@ -272,6 +313,11 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
   conjunto en PY, agrupa varios lotes de venta), columnas
   `py_official_weight_kg` y `sample_batch_id` en `sale_lots`. DELETE
   incluido desde el arranque.
+- `0016_py_settlement.sql` — renombra los campos de ensayo de
+  `py_sample_batches` con prefijo `prov_` y agrega: ensaye final
+  (`final_*`), liquidación provisional (90%, precios promedio 5 días),
+  ventana de fijación + fijación por metal (Au/Ag/Pb), liquidación final.
+  Números y reglas sacados del contrato real PYCP-202656 (ver arriba).
 
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
@@ -323,9 +369,10 @@ hacer. Progreso:
   mezcla lotes de compra libremente.
 - ~~Despacho del lote de venta + recepción en PY~~ — **hecho** (`/ventas/[id]`, ver arriba).
 - ~~Muestreo conjunto (ley real del lado de PY)~~ — **hecho** (`/muestreo`, ver arriba).
-- Liquidación provisional (90%) y final de PY — falta.
-- Fijaciones de precio por metal — falta.
-- Márgenes por lote de compra/venta — falta.
+- ~~Liquidación provisional (90%) y final de PY~~ — **hecho** (`/muestreo/[id]`, ver arriba).
+- ~~Fijaciones de precio por metal~~ — **hecho**, junto con lo anterior.
+- Márgenes por lote de compra/venta — falta. Es lo último que queda de
+  Fase 2 (sin contar blending, descartado).
 
 **Fase 3 (después, según lo acordado):** panel de control gerencial, asistente de
 IA, conexión a fuentes de precio pagas (LBMA/LME/Fastmarkets), integración con Nisira
