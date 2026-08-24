@@ -242,9 +242,17 @@ del contrato:
   liquidación calculada sobre ellos (no se puede borrar un registro
   financiero real por accidente) — a propósito, no es un bug.
 
-**Falta de Fase 2** (sin blending, por pedido del usuario): márgenes por
-lote de compra/venta (comparar lo pagado al proveedor vs. lo cobrado a PY,
-cruzando por los big bags de cada lote de venta).
+**Márgenes** (`/margenes`) — reporte de solo lectura, sin tabla nueva ni
+acciones: cruza `lot_settlements.precio_definitivo_total` (costo definitivo
+por lote de compra) contra `py_sample_batches.final_value_total` (ingreso
+final por muestreo de PY), prorrateado por peso a través de cada big bag
+(costo por kg del lote de compra al que pertenece, ingreso por kg del
+muestreo donde terminó). Dos tablas — por lote de compra y por lote de
+venta — con el margen agregado. Un big bag solo entra al cálculo si **ambos**
+lados tienen liquidación definitiva; si falta alguno queda contado aparte
+como "pendiente" (peso) en vez de arrastrar un número incompleto. Con esto
+se cierra Fase 2 completa (sin contar blending, descartado a pedido del
+usuario).
 
 **Precios internacionales** (`/precios`) — oro y plata se leen **en vivo** de
 inversoro.es (la fuente que pidió el usuario) en cada carga de página. Plomo se
@@ -371,8 +379,11 @@ hacer. Progreso:
 - ~~Muestreo conjunto (ley real del lado de PY)~~ — **hecho** (`/muestreo`, ver arriba).
 - ~~Liquidación provisional (90%) y final de PY~~ — **hecho** (`/muestreo/[id]`, ver arriba).
 - ~~Fijaciones de precio por metal~~ — **hecho**, junto con lo anterior.
-- Márgenes por lote de compra/venta — falta. Es lo último que queda de
-  Fase 2 (sin contar blending, descartado).
+- ~~Márgenes por lote de compra/venta~~ — **hecho** (`/margenes`, ver arriba).
+
+**Fase 2 (venta a PY) completa** (sin contar blending, descartado a pedido
+del usuario). Con esto, Fase 1 y Fase 2 están implementadas de punta a
+punta.
 
 **Fase 3 (después, según lo acordado):** panel de control gerencial, asistente de
 IA, conexión a fuentes de precio pagas (LBMA/LME/Fastmarkets), integración con Nisira
