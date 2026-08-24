@@ -177,11 +177,33 @@ completo. Hecho hasta ahora:
   Despachar/recibir sincroniza el estado de todos los big bags del lote
   (`reservado` → `despachado` → `recibido_py`), así `/big-bags` queda al
   día. Probado de punta a punta: armado → despachado → recibido en PY,
-  con deshacer en cada paso.
+  con deshacer en cada paso. La recepción en PY también tiene **peso
+  oficial del trailer** (por lote de venta / camión), comparado contra la
+  suma de big bags que Ginebra ya tenía — mismo control que el pesaje de
+  Trujillo del lado de compra.
+- **Muestreo conjunto en PY** (`/muestreo`) — el usuario explicó el proceso
+  real: al llegar a Lima se pesan los trailers, se rompen los big bags en
+  una plataforma y se **mezclan** — varios lotes de venta se convierten en
+  uno solo para el muestreo. Por eso la agrupación es **automática, no
+  manual**: "Crear muestreo" junta TODOS los lotes de venta en estado
+  `recibido_py` que todavía no fueron muestreados (confirmado con el
+  usuario — así es como funciona en la realidad, no hay selección de a
+  uno). El resultado de laboratorio usa los mismos elementos que ya se
+  cargan del lado de compra (Au/Ag/Pb + As/Sb/S/humedad). Tabla nueva:
+  `py_sample_batches` (migración 0015), código `MUE-AA-NN`. Se puede
+  deshacer el muestreo (libera los lotes de venta) **solo mientras no
+  tenga resultado de laboratorio cargado** — después de eso es un
+  registro de laboratorio real, no se borra.
 
-**Falta de Fase 2** (sin blending, por pedido del usuario): muestreo
-conjunto (ley real del lado de PY), liquidación provisional (90%) y final
-de PY, fijaciones de precio por metal, márgenes por lote de compra/venta.
+**Ojo con un archivo que apareció en la carpeta del proyecto:**
+`PYCP-202656 - XXXXX - AG ORES _Vs 30.06.26 (1).docx` — parece ser el
+contrato real con PY. **No está en git** (a propósito, no se subió) — si
+hace falta leerlo para sacar números reales de alguna fórmula, pedirle
+permiso al usuario primero, es un documento comercial sensible.
+
+**Falta de Fase 2** (sin blending, por pedido del usuario): liquidación
+provisional (90%) y final de PY, fijaciones de precio por metal, márgenes
+por lote de compra/venta.
 
 **Precios internacionales** (`/precios`) — oro y plata se leen **en vivo** de
 inversoro.es (la fuente que pidió el usuario) en cada carga de página. Plomo se
@@ -200,7 +222,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0014`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0015`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
@@ -246,6 +268,10 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
   en `big_bags` para que el rol comercial pueda reservar bolsones.
 - `0014_sale_lot_dispatch.sql` — columnas de despacho y recepción en PY
   directo en `sale_lots` (sin tabla de log aparte).
+- `0015_py_sample_batches.sql` — tabla nueva `py_sample_batches` (muestreo
+  conjunto en PY, agrupa varios lotes de venta), columnas
+  `py_official_weight_kg` y `sample_batch_id` en `sale_lots`. DELETE
+  incluido desde el arranque.
 
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
@@ -296,7 +322,7 @@ hacer. Progreso:
 - ~~Lote de venta~~ — **hecho** (`/ventas`, ver arriba). Selección manual,
   mezcla lotes de compra libremente.
 - ~~Despacho del lote de venta + recepción en PY~~ — **hecho** (`/ventas/[id]`, ver arriba).
-- Muestreo conjunto (ley real del lado de PY) — falta.
+- ~~Muestreo conjunto (ley real del lado de PY)~~ — **hecho** (`/muestreo`, ver arriba).
 - Liquidación provisional (90%) y final de PY — falta.
 - Fijaciones de precio por metal — falta.
 - Márgenes por lote de compra/venta — falta.
