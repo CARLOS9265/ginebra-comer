@@ -25,11 +25,11 @@ export function DeleteRowButton({
             if (result?.error) setError(result.error);
           });
         }}
-        className="text-xs text-red-400 hover:underline disabled:opacity-50"
+        className="text-xs text-red-600 hover:underline disabled:opacity-50"
       >
         Eliminar
       </button>
-      {error && <p className="mt-1 max-w-[220px] text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-1 max-w-[220px] text-xs text-red-600">{error}</p>}
     </div>
   );
 }

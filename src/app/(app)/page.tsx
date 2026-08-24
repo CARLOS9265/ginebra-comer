@@ -6,10 +6,10 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-50">
+      <h1 className="text-xl font-semibold text-slate-900">
         Hola, {profile.full_name.split(" ")[0]}
       </h1>
-      <p className="mt-1 text-sm text-slate-400">
+      <p className="mt-1 text-sm text-slate-500">
         Rol: {ROLE_LABELS[profile.role]}. Esta es la base del sistema — el registro de lotes de
         compra se agrega en el próximo paso.
       </p>

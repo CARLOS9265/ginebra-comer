@@ -2,7 +2,7 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0d1a30;
 }
 
 @theme inline {
@@ -10,13 +10,30 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Azul marino y dorado del logo de Ginebra Trade Peru. */
+  --color-navy-50: #eef2f8;
+  --color-navy-100: #d7e0ee;
+  --color-navy-200: #b0c1dd;
+  --color-navy-300: #7f99c2;
+  --color-navy-400: #4f70a0;
+  --color-navy-500: #325480;
+  --color-navy-600: #234066;
+  --color-navy-700: #1c3355;
+  --color-navy-800: #142543;
+  --color-navy-900: #0d1a30;
+  --color-navy-950: #081120;
+
+  --color-gold-50: #fdf8ec;
+  --color-gold-100: #faedc9;
+  --color-gold-200: #f3d98d;
+  --color-gold-300: #ecc35a;
+  --color-gold-400: #ddab35;
+  --color-gold-500: #c4901f;
+  --color-gold-600: #a3730f;
+  --color-gold-700: #7f590d;
+  --color-gold-800: #63460f;
+  --color-gold-900: #4d370f;
 }
 
 body {

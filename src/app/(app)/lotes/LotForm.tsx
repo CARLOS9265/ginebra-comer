@@ -253,7 +253,7 @@ export function LotForm({
               <button
                 type="button"
                 onClick={() => setProvisional(suggestion.unitPriceUsdPerTms.toFixed(2))}
-                className="mt-1.5 text-xs text-teal-400 hover:underline"
+                className="mt-1.5 text-xs text-gold-700 hover:underline"
               >
                 Usar sugerido ({fmtUSD(suggestion.unitPriceUsdPerTms)}/TMH)
               </button>
@@ -262,7 +262,7 @@ export function LotForm({
         </Section>
 
         {state?.error && (
-          <p className="rounded-lg border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-400">
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
             {state.error}
           </p>
         )}
@@ -270,19 +270,19 @@ export function LotForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-teal-500 disabled:opacity-60"
+          className="rounded-lg bg-navy-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-navy-700 disabled:opacity-60"
         >
           {pending ? "Guardando..." : mode === "edit" ? "Guardar cambios" : "Registrar lote"}
         </button>
       </form>
 
       <div className="lg:sticky lg:top-20 lg:self-start">
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-200">Pago provisional sugerido</h2>
+            <h2 className="text-sm font-semibold text-slate-700">Pago provisional sugerido</h2>
             {refPrices?.isLive && (
-              <span className="flex items-center gap-1.5 text-xs text-teal-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-teal-400" /> En vivo
+              <span className="flex items-center gap-1.5 text-xs text-gold-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-gold-500" /> En vivo
               </span>
             )}
           </div>
@@ -295,9 +295,9 @@ export function LotForm({
               {refPrices.lead != null && <Row label="Plomo (USD/TM)" value={fmtUSD(refPrices.lead, 0)} />}
               <Row label="% pagable inicial" value={`${payablePct || 0}%`} />
 
-              <div className="border-t border-dashed border-slate-800 pt-3">
+              <div className="border-t border-dashed border-slate-200 pt-3">
                 {!tmh || !goldGrade && !silverGrade && !leadGrade ? (
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-slate-400">
                     Cargá el peso (TMH) y al menos una ley estimada para ver el cálculo.
                   </p>
                 ) : suggestion ? (
@@ -305,13 +305,13 @@ export function LotForm({
                     <Row label="Au → USD/TMS" value={fmtUSD(suggestion.goldUsdPerTms)} />
                     <Row label="Ag → USD/TMS" value={fmtUSD(suggestion.silverUsdPerTms)} />
                     <Row label="Pb → USD/TMS" value={fmtUSD(suggestion.leadUsdPerTms)} />
-                    <div className="mt-2 border-t border-dashed border-slate-800 pt-2">
+                    <div className="mt-2 border-t border-dashed border-slate-200 pt-2">
                       <Row label="Precio unitario" value={`${fmtUSD(suggestion.unitPriceUsdPerTms)}/TMH`} strong />
                       <Row label="Total del lote" value={fmtUSD(suggestion.totalUsd, 0)} strong />
                     </div>
                   </>
                 ) : (
-                  <p className="text-xs text-slate-600">Cargá el peso y la ley estimada.</p>
+                  <p className="text-xs text-slate-400">Cargá el peso y la ley estimada.</p>
                 )}
               </div>
             </div>
@@ -325,7 +325,7 @@ export function LotForm({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="mb-3 border-b border-slate-800 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <h3 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
         {title}
       </h3>
       {children}
@@ -334,14 +334,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <span className="mb-1.5 block text-xs font-medium text-slate-400">{children}</span>;
+  return <span className="mb-1.5 block text-xs font-medium text-slate-500">{children}</span>;
 }
 
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex items-baseline justify-between">
       <span className="text-slate-500">{label}</span>
-      <span className={`font-mono ${strong ? "text-base font-semibold text-teal-400" : "text-slate-200"}`}>
+      <span className={`font-mono ${strong ? "text-base font-semibold text-gold-700" : "text-slate-700"}`}>
         {value}
       </span>
     </div>
@@ -349,11 +349,11 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
 }
 
 function Hint({ children }: { children: React.ReactNode }) {
-  return <span className="mt-1 block text-xs text-slate-600">{children}</span>;
+  return <span className="mt-1 block text-xs text-slate-400">{children}</span>;
 }
 
 const inputClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-gold-500";
 const selectClass = inputClass;
 
 function TextField({

@@ -71,28 +71,28 @@ export function CalendarView({
     <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-200">
+          <h2 className="text-sm font-semibold text-slate-700">
             {MONTH_NAMES[month - 1]} {year}
           </h2>
           <div className="flex gap-2">
             <Link
               href={`/calendario?month=${monthParam(prev.year, prev.month)}`}
-              className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
+              className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs text-slate-400 hover:bg-slate-100"
             >
               ← Anterior
             </Link>
             <Link
               href={`/calendario?month=${monthParam(next.year, next.month)}`}
-              className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
+              className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs text-slate-400 hover:bg-slate-100"
             >
               Siguiente →
             </Link>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-slate-800 bg-slate-800 text-xs">
+        <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-xs">
           {WEEKDAY_NAMES.map((w) => (
-            <div key={w} className="bg-slate-900 px-2 py-1.5 text-center font-medium text-slate-500">
+            <div key={w} className="bg-white px-2 py-1.5 text-center font-medium text-slate-500">
               {w}
             </div>
           ))}
@@ -104,13 +104,13 @@ export function CalendarView({
                 key={date}
                 type="button"
                 onClick={() => setSelectedDate(date)}
-                className={`min-h-[76px] bg-slate-900 p-1.5 text-left align-top transition ${
+                className={`min-h-[76px] bg-white p-1.5 text-left align-top transition ${
                   inMonth ? "" : "opacity-40"
-                } ${isSelected ? "ring-2 ring-inset ring-teal-500" : "hover:bg-slate-850"}`}
+                } ${isSelected ? "ring-2 ring-inset ring-gold-500" : "hover:bg-slate-100"}`}
               >
                 <div
                   className={`mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${
-                    date === today ? "bg-teal-600 text-white" : "text-slate-400"
+                    date === today ? "bg-navy-800 text-white" : "text-slate-500"
                   }`}
                 >
                   {Number(date.slice(8, 10))}
@@ -121,8 +121,8 @@ export function CalendarView({
                       key={it.id}
                       className={`truncate rounded px-1 py-0.5 text-[10px] ${
                         it.type === "compra"
-                          ? "bg-teal-950/60 text-teal-300"
-                          : "bg-purple-950/60 text-purple-300"
+                          ? "bg-gold-100 text-gold-600"
+                          : "bg-purple-100 text-purple-700"
                       }`}
                     >
                       {it.type === "compra" ? providerOf(it)?.code ?? "Compra" : it.destination ?? "Despacho"}
@@ -139,10 +139,10 @@ export function CalendarView({
 
         <div className="mt-3 flex gap-4 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-teal-800" /> Compra (llegada de mina)
+            <span className="h-2.5 w-2.5 rounded-sm bg-gold-200" /> Compra (llegada de mina)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-purple-800" /> Despacho a Lima
+            <span className="h-2.5 w-2.5 rounded-sm bg-purple-200" /> Despacho a Lima
           </span>
         </div>
       </div>
@@ -164,13 +164,13 @@ function DayPanel({
   const [showForm, setShowForm] = useState(items.length === 0);
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-200">{formatLong(date)}</h3>
+        <h3 className="text-sm font-semibold text-slate-700">{formatLong(date)}</h3>
         <button
           type="button"
           onClick={() => setShowForm((s) => !s)}
-          className="text-xs text-teal-400 hover:underline"
+          className="text-xs text-gold-700 hover:underline"
         >
           {showForm ? "Cancelar" : "+ Programar volquete"}
         </button>
@@ -189,7 +189,7 @@ function DayPanel({
       )}
 
       {showForm && (
-        <div className="mt-4 border-t border-slate-800 pt-4">
+        <div className="mt-4 border-t border-slate-200 pt-4">
           <ScheduleForm date={date} providers={providers} onDone={() => setShowForm(false)} />
         </div>
       )}
@@ -200,18 +200,18 @@ function DayPanel({
 function ScheduleRow({ item }: { item: ScheduleItem }) {
   const provider = providerOf(item);
   return (
-    <li className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm">
+    <li className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
       <div className="flex items-center justify-between">
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-            item.type === "compra" ? "bg-teal-950 text-teal-300" : "bg-purple-950 text-purple-300"
+            item.type === "compra" ? "bg-gold-100 text-gold-600" : "bg-purple-100 text-purple-700"
           }`}
         >
           {item.type === "compra" ? "Compra" : "Despacho a Lima"}
         </span>
         <span className="text-xs text-slate-500">{item.scheduled_time?.slice(0, 5) ?? "sin hora"}</span>
       </div>
-      <div className="mt-2 text-slate-200">
+      <div className="mt-2 text-slate-700">
         {item.type === "compra" ? provider?.name ?? "Proveedor sin especificar" : item.destination}
       </div>
       <div className="mt-1 space-y-0.5 text-xs text-slate-500">
@@ -224,7 +224,7 @@ function ScheduleRow({ item }: { item: ScheduleItem }) {
         <select
           defaultValue={item.status}
           onChange={(e) => updateScheduleStatus(item.id, e.target.value)}
-          className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-300"
+          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-400"
         >
           {Object.entries(STATUS_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
@@ -237,7 +237,7 @@ function ScheduleRow({ item }: { item: ScheduleItem }) {
           onClick={() => {
             if (confirm("¿Eliminar esta programación?")) deleteSchedule(item.id);
           }}
-          className="text-xs text-red-400 hover:underline"
+          className="text-xs text-red-600 hover:underline"
         >
           Eliminar
         </button>
@@ -328,12 +328,12 @@ function ScheduleForm({
         <textarea name="notes" rows={2} className={`${inputClass} resize-none`} />
       </label>
 
-      {state?.error && <p className="text-sm text-red-400">{state.error}</p>}
+      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
 
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-lg bg-teal-600 py-2 text-sm font-medium text-white hover:bg-teal-500 disabled:opacity-60"
+        className="w-full rounded-lg bg-navy-800 py-2 text-sm font-medium text-white hover:bg-navy-700 disabled:opacity-60"
       >
         {pending ? "Guardando..." : "Programar"}
       </button>
@@ -348,8 +348,8 @@ function TypeButton({ label, active, onClick }: { label: string; active: boolean
       onClick={onClick}
       className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
         active
-          ? "border-teal-600 bg-teal-950/60 text-teal-300"
-          : "border-slate-700 text-slate-400 hover:bg-slate-800"
+          ? "border-gold-600 bg-gold-100 text-gold-600"
+          : "border-slate-300 text-slate-500 hover:bg-slate-100"
       }`}
     >
       {label}
@@ -358,11 +358,11 @@ function TypeButton({ label, active, onClick }: { label: string; active: boolean
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <span className="mb-1 block text-xs font-medium text-slate-400">{children}</span>;
+  return <span className="mb-1 block text-xs font-medium text-slate-500">{children}</span>;
 }
 
 const inputClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-500";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-gold-500";
 
 function formatLong(iso: string): string {
   const d = new Date(iso + "T00:00:00");

@@ -58,10 +58,10 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
 
   return (
     <div>
-      <Link href="/lotes" className="text-sm text-slate-500 hover:text-slate-300">
+      <Link href="/lotes" className="text-sm text-slate-500 hover:text-slate-900">
         ← Lotes de compra
       </Link>
-      <h1 className="mt-2 text-xl font-semibold text-slate-50">
+      <h1 className="mt-2 text-xl font-semibold text-slate-900">
         Editar lote <span className="font-mono">{lot.code}</span>
       </h1>
 

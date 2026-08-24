@@ -17,32 +17,32 @@ export default async function ProvidersPage({
   return (
     <div>
       {editado && (
-        <div className="mb-4 rounded-lg border border-teal-800 bg-teal-950/40 px-4 py-2.5 text-sm text-teal-300">
+        <div className="mb-4 rounded-lg border border-gold-200 bg-gold-50 px-4 py-2.5 text-sm text-gold-600">
           Proveedor actualizado correctamente.
         </div>
       )}
 
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-50">Proveedores</h1>
-          <p className="mt-1 text-sm text-slate-400">Minas y traders de los que Ginebra compra mineral.</p>
+          <h1 className="text-xl font-semibold text-slate-900">Proveedores</h1>
+          <p className="mt-1 text-sm text-slate-500">Minas y traders de los que Ginebra compra mineral.</p>
         </div>
         <Link
           href="/proveedores/nuevo"
-          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-500"
+          className="rounded-lg bg-navy-800 px-4 py-2 text-sm font-medium text-white hover:bg-navy-700"
         >
           + Nuevo proveedor
         </Link>
       </div>
 
       {!providers || providers.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
           Todavía no hay proveedores registrados.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-800">
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full text-sm">
-            <thead className="bg-slate-900 text-left text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-white text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">Código</th>
                 <th className="px-4 py-3">Nombre</th>
@@ -53,11 +53,11 @@ export default async function ProvidersPage({
             </thead>
             <tbody className="divide-y divide-slate-800">
               {providers.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-900/50">
-                  <td className="px-4 py-3 font-mono text-slate-200">{p.code}</td>
-                  <td className="px-4 py-3 text-slate-200">{p.name}</td>
-                  <td className="px-4 py-3 text-slate-400">{p.mine_name ?? "—"}</td>
-                  <td className="px-4 py-3 text-slate-400">{p.concession ?? "—"}</td>
+                <tr key={p.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 font-mono text-slate-700">{p.code}</td>
+                  <td className="px-4 py-3 text-slate-700">{p.name}</td>
+                  <td className="px-4 py-3 text-slate-500">{p.mine_name ?? "—"}</td>
+                  <td className="px-4 py-3 text-slate-500">{p.concession ?? "—"}</td>
                   <td className="px-4 py-3">
                     <ProviderRowActions id={p.id} />
                   </td>

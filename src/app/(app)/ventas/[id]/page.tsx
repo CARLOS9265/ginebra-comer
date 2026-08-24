@@ -46,19 +46,19 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
   return (
     <div className="space-y-8">
       <div>
-        <Link href="/ventas" className="text-xs text-slate-500 hover:text-slate-300">
+        <Link href="/ventas" className="text-xs text-slate-500 hover:text-slate-900">
           ← Lotes de venta
         </Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-slate-50">{saleLot.code}</h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <h1 className="text-xl font-semibold text-slate-900">{saleLot.code}</h1>
+            <p className="mt-1 text-sm text-slate-500">
               Armado el {new Date(saleLot.created_at).toLocaleDateString("es-PE")} · {bags?.length ?? 0} big bags ·{" "}
               {fmtKg(totalKg)}
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="rounded-full bg-slate-800 px-3 py-1.5 text-xs text-slate-300">
+            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-400">
               {SALE_LOT_STATUS_LABELS[saleLot.status as keyof typeof SALE_LOT_STATUS_LABELS] ?? saleLot.status}
             </span>
             {saleLot.status === "armado" && (
@@ -73,7 +73,7 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <div>
-        <h2 className="mb-3 border-b border-slate-800 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           Big bags en este lote
         </h2>
         {!bags || bags.length === 0 ? (
@@ -85,14 +85,14 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
               return (
                 <div
                   key={b.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 p-2.5 text-sm"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-2.5 text-sm"
                 >
-                  <div className="text-slate-300">
+                  <div className="text-slate-400">
                     <span className="font-mono">{b.code}</span> · {fmtKg(b.weight_kg)}
                     {purchaseLot && (
                       <>
                         {" · "}
-                        <Link href={`/lotes/${purchaseLot.id}`} className="text-teal-400 hover:underline">
+                        <Link href={`/lotes/${purchaseLot.id}`} className="text-gold-700 hover:underline">
                           {purchaseLot.code}
                         </Link>
                       </>

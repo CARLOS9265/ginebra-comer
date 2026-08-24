@@ -6,7 +6,7 @@ import { deleteProvider } from "./actions";
 export function ProviderRowActions({ id }: { id: string }) {
   return (
     <div className="flex items-center gap-3">
-      <Link href={`/proveedores/${id}/editar`} className="text-xs text-teal-400 hover:underline">
+      <Link href={`/proveedores/${id}/editar`} className="text-xs text-gold-700 hover:underline">
         Editar
       </Link>
       <button
@@ -16,7 +16,7 @@ export function ProviderRowActions({ id }: { id: string }) {
           const result = await deleteProvider(id);
           if (result?.error) alert(result.error);
         }}
-        className="text-xs text-red-400 hover:underline"
+        className="text-xs text-red-600 hover:underline"
       >
         Eliminar
       </button>

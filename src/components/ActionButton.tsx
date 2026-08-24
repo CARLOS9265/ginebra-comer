@@ -18,7 +18,7 @@ export function ActionButton({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const colorClass = variant === "danger" ? "bg-red-600 hover:bg-red-500" : "bg-teal-600 hover:bg-teal-500";
+  const colorClass = variant === "danger" ? "bg-red-600 hover:bg-red-500" : "bg-navy-800 hover:bg-navy-700";
 
   return (
     <div>
@@ -37,7 +37,7 @@ export function ActionButton({
       >
         {pending ? (pendingLabel ?? "...") : label}
       </button>
-      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

@@ -201,22 +201,22 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   return (
     <div className="space-y-8">
       <div>
-        <Link href="/lotes" className="text-xs text-slate-500 hover:text-slate-300">
+        <Link href="/lotes" className="text-xs text-slate-500 hover:text-slate-900">
           ← Lotes de compra
         </Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-slate-50">{lot.code}</h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <h1 className="text-xl font-semibold text-slate-900">{lot.code}</h1>
+            <p className="mt-1 text-sm text-slate-500">
               {provider?.name ?? "—"} · Cargado el {new Date(lot.loaded_at).toLocaleDateString("es-PE")} ·{" "}
               {lot.estimated_weight_tmh ?? "—"} TMH estimadas
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="rounded-full bg-slate-800 px-3 py-1.5 text-xs text-slate-300">
+            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-400">
               {LOT_STATUS_LABELS[lot.status as keyof typeof LOT_STATUS_LABELS] ?? lot.status}
             </span>
-            <Link href={`/lotes/${lot.id}/editar`} className="text-xs text-teal-400 hover:underline">
+            <Link href={`/lotes/${lot.id}/editar`} className="text-xs text-gold-700 hover:underline">
               Editar datos del lote
             </Link>
           </div>
@@ -231,14 +231,14 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
             {seals.map((s) => (
               <span
                 key={s.id}
-                className="rounded-full bg-slate-800 px-3 py-1.5 text-xs font-mono text-slate-300"
+                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-mono text-slate-400"
               >
                 {s.code} · {SEAL_STATUS_LABELS[s.status] ?? s.status}
               </span>
             ))}
           </div>
         )}
-        <Link href="/precintos" className="mt-3 inline-block text-xs text-teal-400 hover:underline">
+        <Link href="/precintos" className="mt-3 inline-block text-xs text-gold-700 hover:underline">
           Gestionar precintos →
         </Link>
       </Section>
@@ -249,9 +249,9 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
             {events.map((e) => (
               <div
                 key={e.id}
-                className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 p-3 text-sm"
+                className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm"
               >
-                <div className="space-y-0.5 text-slate-300">
+                <div className="space-y-0.5 text-slate-400">
                   <div>
                     {e.carrier_name ?? "Transportista sin datos"} ·{" "}
                     {fmtDate(e.departed_at) ?? "Sin fecha de salida"}
@@ -278,16 +278,16 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
             {weighings.map((w) => (
               <div
                 key={w.id}
-                className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 p-3 text-sm"
+                className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm"
               >
-                <div className="space-y-0.5 text-slate-300">
+                <div className="space-y-0.5 text-slate-400">
                   <div className="font-medium">{WEIGHING_TYPE_LABELS[w.type] ?? w.type}</div>
                   <div className="text-xs text-slate-500">
                     Neto {fmtKg(w.net_weight)}
                     {w.ticket_number && ` · Ticket ${w.ticket_number}`}
                     {w.weighed_at && ` · ${fmtDate(w.weighed_at)}`}
                   </div>
-                  {w.reason && <div className="text-xs text-amber-400">Motivo: {w.reason}</div>}
+                  {w.reason && <div className="text-xs text-amber-700">Motivo: {w.reason}</div>}
                 </div>
                 <DeleteRowButton
                   action={deleteWeighing.bind(null, lot.id, w.id)}
@@ -299,10 +299,10 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
               <div
                 className={`rounded-lg border px-3 py-2 text-xs ${
                   diffKg === 0
-                    ? "border-slate-800 text-slate-400"
+                    ? "border-slate-200 text-slate-500"
                     : diffKg > 0
-                      ? "border-teal-900 bg-teal-950/30 text-teal-400"
-                      : "border-red-900 bg-red-950/30 text-red-400"
+                      ? "border-gold-200 bg-gold-50 text-gold-700"
+                      : "border-red-200 bg-red-50 text-red-600"
                 }`}
               >
                 Diferencia oficial vs. inicial: {diffKg > 0 ? "+" : ""}
@@ -316,8 +316,8 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
       <Section title="Recepción en molino">
         {reception ? (
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 p-3 text-sm">
-            <div className="space-y-0.5 text-slate-300">
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
+            <div className="space-y-0.5 text-slate-400">
               <div>
                 {reception.supervisor_name ?? "Supervisor sin datos"} ·{" "}
                 {fmtDate(reception.received_at) ?? "Sin fecha"}
@@ -326,7 +326,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
                 <div className="text-xs text-slate-500">Ubicación: {reception.storage_location}</div>
               )}
               {reception.incidents && (
-                <div className="text-xs text-amber-400">Incidente: {reception.incidents}</div>
+                <div className="text-xs text-amber-700">Incidente: {reception.incidents}</div>
               )}
             </div>
             <DeleteRowButton
@@ -342,8 +342,8 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       <Section title="Conminución y big bags">
         {comminution ? (
           <div className="space-y-4">
-            <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 p-3 text-sm">
-              <div className="space-y-0.5 text-slate-300">
+            <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
+              <div className="space-y-0.5 text-slate-400">
                 <div>
                   {comminution.responsible_name ?? "Responsable sin datos"} ·{" "}
                   {fmtDate(comminution.started_at) ?? "Sin fecha de inicio"}
@@ -368,9 +368,9 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
                   {bigBags.map((b) => (
                     <div
                       key={b.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 p-2.5 text-sm"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-2.5 text-sm"
                     >
-                      <div className="text-slate-300">
+                      <div className="text-slate-400">
                         <span className="font-mono">{b.code}</span> · {fmtKg(b.weight_kg)}
                         {b.storage_location && ` · ${b.storage_location}`}
                       </div>
@@ -384,10 +384,10 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
                     <div
                       className={`rounded-lg border px-3 py-2 text-xs ${
                         bagsDiffKg === 0
-                          ? "border-slate-800 text-slate-400"
+                          ? "border-slate-200 text-slate-500"
                           : Math.abs(bagsDiffKg) <= 50
-                            ? "border-teal-900 bg-teal-950/30 text-teal-400"
-                            : "border-red-900 bg-red-950/30 text-red-400"
+                            ? "border-gold-200 bg-gold-50 text-gold-700"
+                            : "border-red-200 bg-red-50 text-red-600"
                       }`}
                     >
                       Total en big bags: {fmtKg(bagsTotalKg)} · Diferencia vs. procesado (molino):{" "}
@@ -409,8 +409,8 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
       <Section title="Laboratorio">
         {analysis ? (
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 p-3 text-sm">
-            <div className="space-y-2 text-slate-300">
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
+            <div className="space-y-2 text-slate-400">
               <div>
                 {analysis.lab_name ?? "Laboratorio sin datos"} ·{" "}
                 {fmtDate(analysis.analyzed_at) ?? fmtDate(analysis.sampled_at) ?? "Sin fecha"}
@@ -441,12 +441,12 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
       <Section title="Valorización definitiva y liquidación">
         {settlement ? (
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 p-3 text-sm">
-            <div className="space-y-1 text-slate-300">
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
+            <div className="space-y-1 text-slate-400">
               <Row label="Precio definitivo /TMH" value={fmtUSD(settlement.precio_definitivo_per_tmh)} strong />
               <Row label="Total definitivo" value={fmtUSD(settlement.precio_definitivo_total, 0)} />
               <Row label="Ya pagado (provisional)" value={fmtUSD(settlement.provisional_pagado_total, 0)} />
-              <div className="border-t border-dashed border-slate-800 pt-1">
+              <div className="border-t border-dashed border-slate-200 pt-1">
                 <Row
                   label={settlement.saldo_pendiente >= 0 ? "Saldo a favor del proveedor" : "Saldo a favor de Ginebra"}
                   value={fmtUSD(Math.abs(settlement.saldo_pendiente), 0)}
@@ -476,14 +476,14 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
           </p>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
               <p className="mb-2 text-xs font-medium text-slate-500">
                 Vista previa (con ley real de laboratorio y el precio de metales del provisional)
               </p>
               <Row label="Valor de venta a PY /TMH" value={fmtUSD(settlementPreview.valorPYxTMH)} />
               <Row label="Costos hasta la venta /TMH" value={fmtUSD(settlementPreview.costosXTMH)} />
               <Row label="Margen objetivo" value={fmtUSD(settings!.ganancia_objetivo_usd, 0)} />
-              <div className="my-2 border-t border-dashed border-slate-800" />
+              <div className="my-2 border-t border-dashed border-slate-200" />
               <Row label="Precio definitivo /TMH" value={fmtUSD(settlementPreview.precioMaximoCompra)} strong />
               <Row label="Total definitivo" value={fmtUSD(settlementPreview.precioMaximoCompraTotal, 0)} />
               <Row label="Ya pagado (provisional)" value={fmtUSD(previewProvisionalTotal, 0)} />
@@ -510,10 +510,10 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
                   <img
                     src={p.url}
                     alt="Foto de traslado a almacén"
-                    className="h-28 w-28 rounded-lg border border-slate-800 object-cover"
+                    className="h-28 w-28 rounded-lg border border-slate-200 object-cover"
                   />
                 ) : (
-                  <div className="flex h-28 w-28 items-center justify-center rounded-lg border border-slate-800 text-xs text-slate-600">
+                  <div className="flex h-28 w-28 items-center justify-center rounded-lg border border-slate-200 text-xs text-slate-400">
                     Sin vista previa
                   </div>
                 )}
@@ -536,10 +536,10 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
             Falta la liquidación definitiva para poder cerrar la compra.
           </p>
         ) : lot.status === "cerrado" ? (
-          <p className="text-sm text-teal-400">Compra cerrada.</p>
+          <p className="text-sm text-gold-700">Compra cerrada.</p>
         ) : !isPaid ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-slate-500">
               Saldo pendiente: {fmtUSD(Math.abs(settlement.saldo_pendiente), 0)}{" "}
               {settlement.saldo_pendiente >= 0 ? "a favor del proveedor" : "a favor de Ginebra"}.
             </p>
@@ -552,7 +552,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-teal-400">Pagado el {fmtDate(settlement.paid_at)}.</p>
+            <p className="text-sm text-gold-700">Pagado el {fmtDate(settlement.paid_at)}.</p>
             <ActionButton
               action={closeLot.bind(null, lot.id)}
               label="Cerrar compra"
@@ -573,7 +573,7 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
   return (
     <div className="flex items-baseline justify-between">
       <span className="text-slate-500">{label}</span>
-      <span className={`font-mono ${strong ? "text-sm font-semibold text-teal-400" : "text-slate-300"}`}>
+      <span className={`font-mono ${strong ? "text-sm font-semibold text-gold-700" : "text-slate-400"}`}>
         {value}
       </span>
     </div>
@@ -594,7 +594,7 @@ function MetalCompareRow({
   if (real == null) return null;
   const isLow = estimated != null && real < estimated;
   return (
-    <div className={`text-xs ${isLow ? "text-amber-400" : "text-slate-300"}`}>
+    <div className={`text-xs ${isLow ? "text-amber-700" : "text-slate-400"}`}>
       {label}: {real} {unit}
       {estimated != null && ` (estimado: ${estimated} ${unit})`}
       {isLow && " — menor al estimado, revisar"}
@@ -605,7 +605,7 @@ function MetalCompareRow({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h2 className="mb-3 border-b border-slate-800 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <h2 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
         {title}
       </h2>
       {children}

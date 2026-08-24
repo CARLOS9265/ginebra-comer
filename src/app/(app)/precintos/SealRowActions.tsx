@@ -21,7 +21,7 @@ export function SealRowActions({ id, status, lots }: { id: string; status: strin
   }
 
   if (status === "abierto" || status === "anulado") {
-    return <span className="text-xs text-slate-600">—</span>;
+    return <span className="text-xs text-slate-400">—</span>;
   }
 
   return (
@@ -31,7 +31,7 @@ export function SealRowActions({ id, status, lots }: { id: string; status: strin
           <button
             type="button"
             onClick={() => setAssigning(true)}
-            className="text-xs text-teal-400 hover:underline"
+            className="text-xs text-gold-700 hover:underline"
           >
             Asignar a lote
           </button>
@@ -41,7 +41,7 @@ export function SealRowActions({ id, status, lots }: { id: string; status: strin
             type="button"
             disabled={pending}
             onClick={() => run(() => verifySeal(id))}
-            className="text-xs text-teal-400 hover:underline disabled:opacity-50"
+            className="text-xs text-gold-700 hover:underline disabled:opacity-50"
           >
             Verificar
           </button>
@@ -54,7 +54,7 @@ export function SealRowActions({ id, status, lots }: { id: string; status: strin
               const reason = window.prompt("Motivo de apertura del precinto:");
               if (reason) run(() => openSeal(id, reason));
             }}
-            className="text-xs text-amber-400 hover:underline disabled:opacity-50"
+            className="text-xs text-amber-700 hover:underline disabled:opacity-50"
           >
             Abrir
           </button>
@@ -66,7 +66,7 @@ export function SealRowActions({ id, status, lots }: { id: string; status: strin
             const reason = window.prompt("Motivo de anulación del precinto:");
             if (reason) run(() => voidSeal(id, reason));
           }}
-          className="text-xs text-red-400 hover:underline disabled:opacity-50"
+          className="text-xs text-red-600 hover:underline disabled:opacity-50"
         >
           Anular
         </button>
@@ -88,7 +88,7 @@ export function SealRowActions({ id, status, lots }: { id: string; status: strin
           <select
             value={lotId}
             onChange={(e) => setLotId(e.target.value)}
-            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100"
+            className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
           >
             {lots.map((l) => (
               <option key={l.id} value={l.id}>
@@ -100,7 +100,7 @@ export function SealRowActions({ id, status, lots }: { id: string; status: strin
             type="button"
             disabled={pending || !lotId}
             onClick={() => run(() => assignSealToLot(id, lotId))}
-            className="text-xs text-teal-400 hover:underline disabled:opacity-50"
+            className="text-xs text-gold-700 hover:underline disabled:opacity-50"
           >
             Confirmar
           </button>
@@ -113,7 +113,7 @@ export function SealRowActions({ id, status, lots }: { id: string; status: strin
           </button>
         </div>
       )}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

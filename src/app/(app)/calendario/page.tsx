@@ -26,8 +26,8 @@ export default async function CalendarPage({
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-50">Programación de volquetes</h1>
-      <p className="mt-1 text-sm text-slate-400">
+      <h1 className="text-xl font-semibold text-slate-900">Programación de volquetes</h1>
+      <p className="mt-1 text-sm text-slate-500">
         Llegadas de mina para compra y despachos hacia Lima (venta a PY).
       </p>
 

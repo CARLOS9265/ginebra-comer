@@ -6,7 +6,7 @@ import { deletePurchaseLot } from "./actions";
 export function LotRowActions({ id, canDelete }: { id: string; canDelete: boolean }) {
   return (
     <div className="flex items-center gap-3">
-      <Link href={`/lotes/${id}/editar`} className="text-xs text-teal-400 hover:underline">
+      <Link href={`/lotes/${id}/editar`} className="text-xs text-gold-700 hover:underline">
         Editar
       </Link>
       {canDelete && (
@@ -17,7 +17,7 @@ export function LotRowActions({ id, canDelete }: { id: string; canDelete: boolea
               deletePurchaseLot(id);
             }
           }}
-          className="text-xs text-red-400 hover:underline"
+          className="text-xs text-red-600 hover:underline"
         >
           Eliminar
         </button>

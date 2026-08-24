@@ -12,11 +12,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  disponible: "bg-slate-800 text-slate-300",
-  colocado: "bg-sky-950/60 text-sky-400",
-  verificado: "bg-teal-950/60 text-teal-400",
-  abierto: "bg-amber-950/60 text-amber-400",
-  anulado: "bg-red-950/60 text-red-400",
+  disponible: "bg-slate-100 text-slate-400",
+  colocado: "bg-sky-100 text-sky-700",
+  verificado: "bg-gold-100 text-gold-700",
+  abierto: "bg-amber-100 text-amber-700",
+  anulado: "bg-red-100 text-red-600",
 };
 
 const TABS = ["todos", "disponible", "colocado", "verificado", "abierto", "anulado"] as const;
@@ -51,8 +51,8 @@ export default async function SealsPage({
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-slate-50">Precintos</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="text-xl font-semibold text-slate-900">Precintos</h1>
+        <p className="mt-1 text-sm text-slate-500">
           Control documental: colocación, verificación previa a la salida del volquete y apertura
           en molino.
         </p>
@@ -67,8 +67,8 @@ export default async function SealsPage({
             href={t === "todos" ? "/precintos" : `/precintos?estado=${t}`}
             className={`rounded-lg px-3 py-1.5 text-xs ${
               (estado ?? "todos") === t
-                ? "bg-teal-600 text-white"
-                : "bg-slate-900 text-slate-400 hover:bg-slate-800"
+                ? "bg-navy-800 text-white"
+                : "bg-white text-slate-500 hover:bg-slate-100"
             }`}
           >
             {t === "todos" ? "Todos" : STATUS_LABELS[t]}
@@ -77,13 +77,13 @@ export default async function SealsPage({
       </div>
 
       {!seals || seals.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
           No hay precintos en este estado.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-800">
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full text-sm">
-            <thead className="bg-slate-900 text-left text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-white text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">Código</th>
                 <th className="px-4 py-3">Lote</th>
@@ -97,13 +97,13 @@ export default async function SealsPage({
               {seals.map((s) => {
                 const lot = Array.isArray(s.purchase_lots) ? s.purchase_lots[0] : s.purchase_lots;
                 return (
-                  <tr key={s.id} className="hover:bg-slate-900/50">
-                    <td className="px-4 py-3 font-mono text-slate-200">{s.code}</td>
-                    <td className="px-4 py-3 text-slate-300">{lot?.code ?? "—"}</td>
+                  <tr key={s.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 font-mono text-slate-700">{s.code}</td>
+                    <td className="px-4 py-3 text-slate-400">{lot?.code ?? "—"}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs ${
-                          STATUS_COLORS[s.status] ?? "bg-slate-800 text-slate-300"
+                          STATUS_COLORS[s.status] ?? "bg-slate-100 text-slate-400"
                         }`}
                       >
                         {STATUS_LABELS[s.status] ?? s.status}

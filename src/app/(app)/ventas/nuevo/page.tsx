@@ -23,17 +23,17 @@ export default async function NewSaleLotPage() {
 
   return (
     <div>
-      <Link href="/big-bags" className="text-sm text-slate-500 hover:text-slate-300">
+      <Link href="/big-bags" className="text-sm text-slate-500 hover:text-slate-900">
         ← Big bags
       </Link>
-      <h1 className="mt-2 text-xl font-semibold text-slate-50">Armar lote de venta</h1>
-      <p className="mt-1 text-sm text-slate-400">
+      <h1 className="mt-2 text-xl font-semibold text-slate-900">Armar lote de venta</h1>
+      <p className="mt-1 text-sm text-slate-500">
         Elegí los big bags que van en este despacho a PY. Pueden ser de distintos lotes de compra.
       </p>
 
       <div className="mt-6">
         {rows.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500">
+          <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
             No hay big bags disponibles para armar un lote de venta.
           </div>
         ) : (

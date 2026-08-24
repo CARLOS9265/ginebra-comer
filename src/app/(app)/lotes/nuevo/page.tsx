@@ -19,9 +19,9 @@ export default async function NewLotPage() {
 
   if (!providers || providers.length === 0) {
     return (
-      <div className="max-w-lg rounded-xl border border-dashed border-slate-800 p-8 text-center text-sm text-slate-400">
+      <div className="max-w-lg rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
         Todavía no hay proveedores registrados.{" "}
-        <Link href="/proveedores/nuevo" className="text-teal-400 hover:underline">
+        <Link href="/proveedores/nuevo" className="text-gold-700 hover:underline">
           Creá el primero
         </Link>{" "}
         antes de registrar un lote.
@@ -39,11 +39,11 @@ export default async function NewLotPage() {
 
   return (
     <div>
-      <Link href="/lotes" className="text-sm text-slate-500 hover:text-slate-300">
+      <Link href="/lotes" className="text-sm text-slate-500 hover:text-slate-900">
         ← Lotes de compra
       </Link>
-      <h1 className="mt-2 text-xl font-semibold text-slate-50">Nuevo lote de compra</h1>
-      <p className="mt-1 text-sm text-slate-400">
+      <h1 className="mt-2 text-xl font-semibold text-slate-900">Nuevo lote de compra</h1>
+      <p className="mt-1 text-sm text-slate-500">
         Se registra en el momento en que el mineral se carga en la mina. A partir de acá el
         mineral es propiedad de Ginebra.
       </p>
