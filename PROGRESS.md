@@ -7,6 +7,16 @@ Repo: `C:\Users\Carlos\OneDrive\Desktop\FINANZAS\ginebra-erp` (git inicializado,
 commits incrementales con mensajes descriptivos — revisar `git log` para el detalle
 de cada paso).
 
+## Diseño / marca
+
+Paleta rehecha a pedido del usuario para que se parezca al logo de Ginebra
+Trade Peru: azul marino + dorado, fondo claro, vista simple (antes era un
+tema oscuro slate/teal). Tokens `navy-*` y `gold-*` definidos en
+`src/app/globals.css` vía el bloque `@theme` de Tailwind v4 — **usar estas
+clases (`bg-navy-800`, `text-gold-700`, etc.) en pantallas nuevas, no volver
+a los tonos slate/teal oscuros de antes.** El header de `(app)/layout.tsx` es
+la única franja oscura (navy, texto blanco); el resto de la app es clara.
+
 ## Cómo levantarlo
 
 ```bash
