@@ -10,8 +10,8 @@ import { BigBagForm } from "./BigBagForm";
 import { LabAnalysisForm } from "./LabAnalysisForm";
 import { SettlementForm } from "./SettlementForm";
 import { WarehousePhotoForm } from "./WarehousePhotoForm";
-import { DeleteRowButton } from "./DeleteRowButton";
-import { ActionButton } from "./ActionButton";
+import { DeleteRowButton } from "@/components/DeleteRowButton";
+import { ActionButton } from "@/components/ActionButton";
 import {
   deleteTransportEvent,
   deleteWeighing,
