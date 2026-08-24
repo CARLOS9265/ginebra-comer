@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: "/big-bags", label: "Big bags" },
   { href: "/ventas", label: "Ventas a PY" },
   { href: "/muestreo", label: "Muestreo PY" },
+  { href: "/margenes", label: "Márgenes" },
   { href: "/calendario", label: "Programación" },
   { href: "/precios", label: "Precios" },
   { href: "/proveedores", label: "Proveedores" },
