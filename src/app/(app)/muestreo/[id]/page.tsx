@@ -2,17 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ActionButton } from "@/components/ActionButton";
-import { DeleteRowButton } from "@/components/DeleteRowButton";
-import {
-  undoSampleBatch,
-  deleteProvisionalAssay,
-  deleteFinalAssay,
-  markProvisionalPaid,
-  markFinalPaid,
-  saveFinalLiquidation,
-} from "../actions";
+import { undoSampleBatch, markProvisionalPaid, markFinalPaid, saveFinalLiquidation } from "../actions";
 import { ProvisionalAssayForm } from "./ProvisionalAssayForm";
+import { ProvisionalAssayRow } from "./ProvisionalAssayRow";
 import { FinalAssayForm } from "./FinalAssayForm";
+import { FinalAssayRow } from "./FinalAssayRow";
 import { ProvisionalLiquidationForm } from "./ProvisionalLiquidationForm";
 import { FixationWindowForm } from "./FixationWindowForm";
 import { MetalFixation } from "./MetalFixation";
@@ -97,23 +91,7 @@ export default async function SampleBatchDetailPage({ params }: { params: Promis
           Ensaye provisional
         </h2>
         {hasProvAssay ? (
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-            <div className="space-y-1 text-slate-600">
-              <div>
-                {batch.prov_lab_name ?? "Laboratorio sin datos"} · {fmtDate(batch.prov_sampled_at) ?? "Sin fecha"}
-                {batch.prov_report_number && ` · Informe ${batch.prov_report_number}`}
-              </div>
-              <div className="text-xs">
-                Au {batch.prov_au_gt} g/t · Ag {batch.prov_ag_gt} g/t · Pb {batch.prov_pb_pct}%
-              </div>
-            </div>
-            {!hasProvLiquidation && (
-              <DeleteRowButton
-                action={deleteProvisionalAssay.bind(null, batch.id)}
-                confirmText="¿Eliminar este ensaye provisional?"
-              />
-            )}
-          </div>
+          <ProvisionalAssayRow batch={batch} canEdit={!hasProvLiquidation} />
         ) : (
           <ProvisionalAssayForm batchId={batch.id} />
         )}
@@ -158,24 +136,7 @@ export default async function SampleBatchDetailPage({ params }: { params: Promis
             Ensaye final
           </h2>
           {hasFinalAssay ? (
-            <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-              <div className="space-y-1 text-slate-600">
-                <div>
-                  {batch.final_lab_name ?? "Laboratorio sin datos"} ·{" "}
-                  {fmtDate(batch.final_sampled_at) ?? "Sin fecha"}
-                  {batch.final_report_number && ` · Informe ${batch.final_report_number}`}
-                </div>
-                <div className="text-xs">
-                  Au {batch.final_au_gt} g/t · Ag {batch.final_ag_gt} g/t · Pb {batch.final_pb_pct}%
-                </div>
-              </div>
-              {!hasFinalLiquidation && (
-                <DeleteRowButton
-                  action={deleteFinalAssay.bind(null, batch.id)}
-                  confirmText="¿Eliminar este ensaye final?"
-                />
-              )}
-            </div>
+            <FinalAssayRow batch={batch} canEdit={!hasFinalLiquidation} />
           ) : (
             <FinalAssayForm batchId={batch.id} />
           )}
@@ -205,6 +166,7 @@ export default async function SampleBatchDetailPage({ params }: { params: Promis
               fixedAt={batch.au_fixed_at}
               fixedPrice={batch.au_fixed_price}
               windowEnded={windowEnded}
+              locked={hasFinalLiquidation}
             />
             <MetalFixation
               batchId={batch.id}
@@ -212,6 +174,7 @@ export default async function SampleBatchDetailPage({ params }: { params: Promis
               fixedAt={batch.ag_fixed_at}
               fixedPrice={batch.ag_fixed_price}
               windowEnded={windowEnded}
+              locked={hasFinalLiquidation}
             />
             <MetalFixation
               batchId={batch.id}
@@ -219,6 +182,7 @@ export default async function SampleBatchDetailPage({ params }: { params: Promis
               fixedAt={batch.pb_fixed_at}
               fixedPrice={batch.pb_fixed_price}
               windowEnded={windowEnded}
+              locked={hasFinalLiquidation}
             />
           </div>
         </div>

@@ -137,6 +137,45 @@ export async function addAllocation(
   return null;
 }
 
+export async function updateAllocation(
+  saleLotId: string,
+  allocationId: string,
+  _prevState: SaleLotFormState,
+  formData: FormData,
+): Promise<SaleLotFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede editar este lote de venta." };
+  }
+
+  const qty = Math.trunc(Number(formData.get("qty") ?? 0));
+  if (!Number.isFinite(qty) || qty <= 0) {
+    return { error: "Ingresá una cantidad válida." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: current } = await supabase
+    .from("sale_lot_allocations")
+    .select("purchase_lot_id, bag_count")
+    .eq("id", allocationId)
+    .maybeSingle();
+  if (!current) return { error: "No se encontró la asignación." };
+
+  const available = await getAvailablePurchaseLots(supabase);
+  const otherAvailable = available.find((a) => a.purchaseLotId === current.purchase_lot_id)?.available ?? 0;
+  const max = otherAvailable + current.bag_count;
+  if (qty > max) {
+    return { error: `Solo hay ${max} bolsones disponibles de ese lote de compra (incluyendo los ya asignados acá).` };
+  }
+
+  const { error } = await supabase.from("sale_lot_allocations").update({ bag_count: qty }).eq("id", allocationId);
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  revalidatePath(`/ventas/${saleLotId}`);
+  return null;
+}
+
 export async function removeAllocation(saleLotId: string, allocationId: string) {
   const { profile } = await getCurrentUser();
   if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
@@ -228,6 +267,35 @@ export async function dispatchSaleLot(
   return null;
 }
 
+export async function updateDispatch(
+  saleLotId: string,
+  _prevState: SaleLotFormState,
+  formData: FormData,
+): Promise<SaleLotFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede editar el despacho." };
+  }
+
+  const supabase = await createClient();
+  const dispatchedAt = str(formData, "dispatched_at");
+
+  const { error } = await supabase
+    .from("sale_lots")
+    .update({
+      dispatched_at: dispatchedAt ? new Date(dispatchedAt).toISOString() : new Date().toISOString(),
+      dispatch_carrier: str(formData, "dispatch_carrier") || null,
+      dispatch_truck_plate: str(formData, "dispatch_truck_plate") || null,
+      updated_by: profile.id,
+    })
+    .eq("id", saleLotId);
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  revalidatePath(`/ventas/${saleLotId}`);
+  return null;
+}
+
 export async function undoDispatch(saleLotId: string) {
   const { profile } = await getCurrentUser();
   if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
@@ -291,6 +359,41 @@ export async function receiveSaleLotAtPY(
     .from("sale_lots")
     .update({
       status: "recibido_py",
+      received_at_py: receivedAt ? new Date(receivedAt).toISOString() : new Date().toISOString(),
+      py_warehouse: str(formData, "py_warehouse") || null,
+      py_received_by: str(formData, "py_received_by") || null,
+      py_official_weight_kg: officialWeight,
+      updated_by: profile.id,
+    })
+    .eq("id", saleLotId);
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  revalidatePath(`/ventas/${saleLotId}`);
+  return null;
+}
+
+export async function updatePyReception(
+  saleLotId: string,
+  _prevState: SaleLotFormState,
+  formData: FormData,
+): Promise<SaleLotFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede editar la recepción en PY." };
+  }
+
+  const officialWeight = num(formData, "py_official_weight_kg");
+  if (officialWeight == null) {
+    return { error: "El peso oficial del trailer es obligatorio — es la única referencia de peso confiable." };
+  }
+
+  const supabase = await createClient();
+  const receivedAt = str(formData, "received_at_py");
+
+  const { error } = await supabase
+    .from("sale_lots")
+    .update({
       received_at_py: receivedAt ? new Date(receivedAt).toISOString() : new Date().toISOString(),
       py_warehouse: str(formData, "py_warehouse") || null,
       py_received_by: str(formData, "py_received_by") || null,

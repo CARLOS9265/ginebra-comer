@@ -4,14 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { SALE_LOT_STATUS_LABELS } from "@/lib/sale-lot-status";
 import { getAvailablePurchaseLots } from "../available-bags";
 import { DeleteRowButton } from "@/components/DeleteRowButton";
-import { ActionButton } from "@/components/ActionButton";
-import { removeAllocation, deleteSaleLot, undoDispatch, undoPyReception } from "../actions";
+import { deleteSaleLot } from "../actions";
 import { AllocationForm } from "./AllocationForm";
-import { DispatchForm } from "./DispatchForm";
-import { PyReceptionForm } from "./PyReceptionForm";
-
-const fmtKg = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("es-PE")} kg`);
-const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("es-PE") : null);
+import { AllocationRow } from "./AllocationRow";
+import { DispatchSection } from "./DispatchSection";
+import { PyReceptionSection } from "./PyReceptionSection";
 
 export default async function SaleLotDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -81,28 +78,17 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
             {allocations.map((a) => {
               const purchaseLot = Array.isArray(a.purchase_lots) ? a.purchase_lots[0] : a.purchase_lots;
               return (
-                <div
+                <AllocationRow
                   key={a.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-2.5 text-sm"
-                >
-                  <div className="text-slate-400">
-                    <span className="font-mono text-slate-700">{a.bag_count}</span>{" "}
-                    {a.bag_count === 1 ? "bolsón" : "bolsones"} de{" "}
-                    {purchaseLot ? (
-                      <Link href={`/lotes/${purchaseLot.id}`} className="text-gold-700 hover:underline">
-                        {purchaseLot.code}
-                      </Link>
-                    ) : (
-                      "—"
-                    )}
-                  </div>
-                  {saleLot.status === "armado" && (
-                    <DeleteRowButton
-                      action={removeAllocation.bind(null, saleLot.id, a.id)}
-                      confirmText="¿Quitar esta asignación? Los bolsones vuelven a quedar disponibles."
-                    />
-                  )}
-                </div>
+                  saleLotId={saleLot.id}
+                  canEdit={saleLot.status === "armado"}
+                  allocation={{
+                    id: a.id,
+                    bag_count: a.bag_count,
+                    purchaseLotId: purchaseLot?.id ?? null,
+                    purchaseLotCode: purchaseLot?.code ?? "—",
+                  }}
+                />
               );
             })}
           </div>
@@ -115,27 +101,7 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
         <h2 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           Despacho
         </h2>
-        {saleLot.dispatched_at ? (
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-            <div className="text-slate-600">
-              {saleLot.dispatch_carrier ?? "Transportista sin datos"} · {fmtDate(saleLot.dispatched_at)}
-              {saleLot.dispatch_truck_plate && ` · Placa ${saleLot.dispatch_truck_plate}`}
-            </div>
-            {saleLot.status === "despachado" && (
-              <ActionButton
-                action={undoDispatch.bind(null, saleLot.id)}
-                label="Deshacer"
-                pendingLabel="Deshaciendo..."
-                variant="danger"
-                confirmText="¿Deshacer el despacho? El lote vuelve a estado 'armado'."
-              />
-            )}
-          </div>
-        ) : saleLot.status === "armado" ? (
-          <DispatchForm saleLotId={saleLot.id} />
-        ) : (
-          <p className="text-sm text-slate-500">—</p>
-        )}
+        <DispatchSection saleLot={saleLot} />
       </div>
 
       {saleLot.dispatched_at && (
@@ -143,33 +109,7 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
           <h2 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Recepción en PY
           </h2>
-          {saleLot.received_at_py ? (
-            <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-              <div className="text-slate-600">
-                <div>
-                  {saleLot.py_received_by ?? "Sin datos de quién recibió"} · {fmtDate(saleLot.received_at_py)}
-                  {saleLot.py_warehouse && ` · ${saleLot.py_warehouse}`}
-                </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  Peso oficial trailer: {fmtKg(saleLot.py_official_weight_kg)} — este es el peso de
-                  referencia del lote (no se pesa bolsón por bolsón).
-                </div>
-              </div>
-              {saleLot.status === "recibido_py" && (
-                <ActionButton
-                  action={undoPyReception.bind(null, saleLot.id)}
-                  label="Deshacer"
-                  pendingLabel="Deshaciendo..."
-                  variant="danger"
-                  confirmText="¿Deshacer la recepción en PY? El lote vuelve a estado 'despachado'."
-                />
-              )}
-            </div>
-          ) : saleLot.status === "despachado" ? (
-            <PyReceptionForm saleLotId={saleLot.id} />
-          ) : (
-            <p className="text-sm text-slate-500">—</p>
-          )}
+          <PyReceptionSection saleLot={saleLot} />
         </div>
       )}
 

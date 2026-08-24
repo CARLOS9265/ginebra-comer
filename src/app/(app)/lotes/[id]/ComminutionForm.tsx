@@ -1,49 +1,124 @@
 "use client";
 
-import { useActionState } from "react";
-import { createComminution, type LogisticsFormState } from "./actions";
+import { useActionState, useEffect, useRef } from "react";
+import { createComminution, updateComminution, type LogisticsFormState } from "./actions";
 
-export function ComminutionForm({ lotId, officialWeightHint }: { lotId: string; officialWeightHint?: string }) {
-  const boundAction = createComminution.bind(null, lotId);
+function toLocalInputValue(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+type InitialValues = {
+  started_at: string | null;
+  finished_at: string | null;
+  processed_tons: number | null;
+  mill_invoice_number: string | null;
+  tariff_pen_per_ton: number | null;
+  bag_count: number | null;
+};
+
+export function ComminutionForm({
+  lotId,
+  officialWeightHint,
+  comminutionId,
+  initialValues,
+  onDone,
+}: {
+  lotId: string;
+  officialWeightHint?: string;
+  comminutionId?: string;
+  initialValues?: InitialValues;
+  onDone?: () => void;
+}) {
+  const boundAction = comminutionId
+    ? updateComminution.bind(null, lotId, comminutionId)
+    : createComminution.bind(null, lotId);
   const [state, action, pending] = useActionState<LogisticsFormState, FormData>(boundAction, null);
+  const prevPending = useRef(false);
+  useEffect(() => {
+    if (prevPending.current && !pending && state == null) onDone?.();
+    prevPending.current = pending;
+  }, [pending, state, onDone]);
 
   return (
     <form action={action} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Inicio</span>
-          <input name="started_at" type="datetime-local" className={inputClass} />
+          <input
+            name="started_at"
+            type="datetime-local"
+            defaultValue={toLocalInputValue(initialValues?.started_at ?? null)}
+            className={inputClass}
+          />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Fin</span>
-          <input name="finished_at" type="datetime-local" className={inputClass} />
+          <input
+            name="finished_at"
+            type="datetime-local"
+            defaultValue={toLocalInputValue(initialValues?.finished_at ?? null)}
+            className={inputClass}
+          />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Toneladas procesadas (según molino)</span>
-          <input name="processed_tons" type="number" step="0.01" className={inputClass} />
+          <input
+            name="processed_tons"
+            type="number"
+            step="0.01"
+            defaultValue={initialValues?.processed_tons ?? ""}
+            className={inputClass}
+          />
           {officialWeightHint && <span className="mt-1 block text-xs text-slate-400">{officialWeightHint}</span>}
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">N° de factura del molino</span>
-          <input name="mill_invoice_number" className={inputClass} />
+          <input
+            name="mill_invoice_number"
+            defaultValue={initialValues?.mill_invoice_number ?? ""}
+            className={inputClass}
+          />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Tarifa (S/ por tonelada)</span>
-          <input name="tariff_pen_per_ton" type="number" step="0.01" defaultValue="80" className={inputClass} />
+          <input
+            name="tariff_pen_per_ton"
+            type="number"
+            step="0.01"
+            defaultValue={initialValues?.tariff_pen_per_ton ?? "80"}
+            className={inputClass}
+          />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Cantidad de bolsones (big bags)</span>
-          <input name="bag_count" type="number" step="1" min="1" className={inputClass} />
+          <input
+            name="bag_count"
+            type="number"
+            step="1"
+            min="1"
+            defaultValue={initialValues?.bag_count ?? ""}
+            className={inputClass}
+          />
         </label>
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg bg-navy-800 px-4 py-2 text-sm font-medium text-white hover:bg-navy-700 disabled:opacity-60"
-      >
-        {pending ? "Guardando..." : "+ Registrar conminución"}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-navy-800 px-4 py-2 text-sm font-medium text-white hover:bg-navy-700 disabled:opacity-60"
+        >
+          {pending ? "Guardando..." : comminutionId ? "Guardar cambios" : "+ Registrar conminución"}
+        </button>
+        {onDone && (
+          <button type="button" onClick={onDone} className="text-xs text-slate-500 hover:underline">
+            Cancelar
+          </button>
+        )}
+      </div>
     </form>
   );
 }

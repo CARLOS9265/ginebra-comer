@@ -3,27 +3,21 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LOT_STATUS_LABELS } from "@/lib/lot-status";
 import { TransportForm } from "./TransportForm";
+import { TransportEventRow } from "./TransportEventRow";
 import { WeighingForm } from "./WeighingForm";
+import { WeighingRow } from "./WeighingRow";
 import { MillReceptionForm } from "./MillReceptionForm";
+import { MillReceptionRow } from "./MillReceptionRow";
 import { ComminutionForm } from "./ComminutionForm";
+import { ComminutionRow } from "./ComminutionRow";
 import { LabAnalysisForm } from "./LabAnalysisForm";
+import { LabAnalysisRow } from "./LabAnalysisRow";
 import { SettlementForm } from "./SettlementForm";
+import { SettlementRow } from "./SettlementRow";
 import { WarehousePhotoForm } from "./WarehousePhotoForm";
-import { WeighingTicketPhotoForm } from "./WeighingTicketPhotoForm";
 import { DeleteRowButton } from "@/components/DeleteRowButton";
 import { ActionButton } from "@/components/ActionButton";
-import {
-  deleteTransportEvent,
-  deleteWeighing,
-  deleteMillReception,
-  deleteComminution,
-  deleteLabAnalysis,
-  deleteSettlement,
-  deleteWarehousePhoto,
-  deleteWeighingTicketPhoto,
-  markSettlementPaid,
-  closeLot,
-} from "./actions";
+import { deleteWarehousePhoto, markSettlementPaid, closeLot } from "./actions";
 import { estimateLot, type ContractSettings } from "@/lib/contract";
 
 const SEAL_STATUS_LABELS: Record<string, string> = {
@@ -32,12 +26,6 @@ const SEAL_STATUS_LABELS: Record<string, string> = {
   verificado: "Verificado",
   abierto: "Abierto",
   anulado: "Anulado",
-};
-
-const WEIGHING_TYPE_LABELS: Record<string, string> = {
-  inicial: "Pesaje inicial (guía)",
-  oficial: "Pesaje oficial (balanza Trujillo)",
-  regularizacion: "Regularización",
 };
 
 const fmtKg = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("es-PE")} kg`);
@@ -267,25 +255,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         {events && events.length > 0 && (
           <div className="mb-4 space-y-2">
             {events.map((e) => (
-              <div
-                key={e.id}
-                className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm"
-              >
-                <div className="space-y-0.5 text-slate-400">
-                  <div>
-                    {e.carrier_name ?? "Transportista sin datos"} ·{" "}
-                    {fmtDate(e.departed_at) ?? "Sin fecha de salida"}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    {e.tariff_pen_per_tmh != null && `Tarifa S/ ${e.tariff_pen_per_tmh}/TMH`}
-                    {e.security_cost_pen != null && ` · Seguridad S/ ${e.security_cost_pen}`}
-                  </div>
-                </div>
-                <DeleteRowButton
-                  action={deleteTransportEvent.bind(null, lot.id, e.id)}
-                  confirmText="¿Eliminar este evento de transporte?"
-                />
-              </div>
+              <TransportEventRow key={e.id} lotId={lot.id} event={e} />
             ))}
           </div>
         )}
@@ -295,53 +265,14 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       <Section title="Pesajes">
         {weighings && weighings.length > 0 && (
           <div className="mb-4 space-y-2">
-            {weighings.map((w) => {
-              const ticketPhotos = ticketPhotosByWeighing.get(w.id) ?? [];
-              return (
-                <div key={w.id} className="rounded-lg border border-slate-200 p-3 text-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-0.5 text-slate-400">
-                      <div className="font-medium">{WEIGHING_TYPE_LABELS[w.type] ?? w.type}</div>
-                      <div className="text-xs text-slate-500">
-                        Neto {fmtKg(w.net_weight)}
-                        {w.ticket_number && ` · Ticket ${w.ticket_number}`}
-                        {w.weighed_at && ` · ${fmtDate(w.weighed_at)}`}
-                      </div>
-                      {w.reason && <div className="text-xs text-amber-700">Motivo: {w.reason}</div>}
-                    </div>
-                    <DeleteRowButton
-                      action={deleteWeighing.bind(null, lot.id, w.id)}
-                      confirmText="¿Eliminar este pesaje?"
-                    />
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-end gap-3">
-                    {ticketPhotos.map((p) => (
-                      <div key={p.id} className="relative">
-                        {p.url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={p.url}
-                            alt="Foto del ticket de balanza"
-                            className="h-20 w-20 rounded-lg border border-slate-200 object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-slate-200 text-xs text-slate-400">
-                            Sin vista previa
-                          </div>
-                        )}
-                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
-                          <DeleteRowButton
-                            action={deleteWeighingTicketPhoto.bind(null, lot.id, p.id, p.storagePath)}
-                            confirmText="¿Eliminar esta foto del ticket?"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                    <WeighingTicketPhotoForm lotId={lot.id} weighingId={w.id} />
-                  </div>
-                </div>
-              );
-            })}
+            {weighings.map((w) => (
+              <WeighingRow
+                key={w.id}
+                lotId={lot.id}
+                weighing={w}
+                ticketPhotos={ticketPhotosByWeighing.get(w.id) ?? []}
+              />
+            ))}
             {diffKg != null && (
               <div
                 className={`rounded-lg border px-3 py-2 text-xs ${
@@ -363,24 +294,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
       <Section title="Recepción en molino">
         {reception ? (
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
-            <div className="space-y-0.5 text-slate-400">
-              <div>
-                {reception.supervisor_name ?? "Supervisor sin datos"} ·{" "}
-                {fmtDate(reception.received_at) ?? "Sin fecha"}
-              </div>
-              {reception.storage_location && (
-                <div className="text-xs text-slate-500">Ubicación: {reception.storage_location}</div>
-              )}
-              {reception.incidents && (
-                <div className="text-xs text-amber-700">Incidente: {reception.incidents}</div>
-              )}
-            </div>
-            <DeleteRowButton
-              action={deleteMillReception.bind(null, lot.id, reception.id)}
-              confirmText="¿Eliminar esta recepción en molino?"
-            />
-          </div>
+          <MillReceptionRow lotId={lot.id} reception={reception} />
         ) : (
           <MillReceptionForm lotId={lot.id} />
         )}
@@ -388,29 +302,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
       <Section title="Conminución y big bags">
         {comminution ? (
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
-            <div className="space-y-0.5 text-slate-400">
-              <div>
-                {fmtDate(comminution.started_at) ?? "Sin fecha de inicio"}
-                {comminution.finished_at && ` → ${fmtDate(comminution.finished_at)}`}
-              </div>
-              <div className="text-xs text-slate-500">
-                {comminution.processed_tons != null && `Procesado (molino): ${comminution.processed_tons} TM · `}
-                {comminution.tariff_pen_per_ton != null && `Tarifa S/ ${comminution.tariff_pen_per_ton}/TM`}
-                {comminution.mill_invoice_number && ` · Factura ${comminution.mill_invoice_number}`}
-              </div>
-              <div className="text-xs text-slate-500">
-                {comminution.bag_count != null
-                  ? `${comminution.bag_count} ${comminution.bag_count === 1 ? "bolsón generado" : "bolsones generados"}`
-                  : "Cantidad de bolsones sin datos"}{" "}
-                — el peso real se controla con el ticket de balanza (sección Pesajes), no bolsón por bolsón.
-              </div>
-            </div>
-            <DeleteRowButton
-              action={deleteComminution.bind(null, lot.id, comminution.id)}
-              confirmText="¿Eliminar esta conminución?"
-            />
-          </div>
+          <ComminutionRow lotId={lot.id} comminution={comminution} officialWeightHint={officialWeightHint} />
         ) : (
           <ComminutionForm lotId={lot.id} officialWeightHint={officialWeightHint} />
         )}
@@ -418,31 +310,13 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
       <Section title="Laboratorio">
         {analysis ? (
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
-            <div className="space-y-2 text-slate-400">
-              <div>
-                {analysis.lab_name ?? "Laboratorio sin datos"} ·{" "}
-                {fmtDate(analysis.analyzed_at) ?? fmtDate(analysis.sampled_at) ?? "Sin fecha"}
-                {analysis.report_number && ` · Informe ${analysis.report_number}`}
-              </div>
-              <div className="space-y-1">
-                <MetalCompareRow label="Au" unit="g/t" real={analysis.au_gt} estimated={lot.estimated_au} />
-                <MetalCompareRow label="Ag" unit="g/t" real={analysis.ag_gt} estimated={lot.estimated_ag} />
-                <MetalCompareRow label="Pb" unit="%" real={analysis.pb_pct} estimated={lot.estimated_pb} />
-              </div>
-              <div className="text-xs text-slate-500">
-                {analysis.as_pct != null && `As ${analysis.as_pct}% · `}
-                {analysis.sb_pct != null && `Sb ${analysis.sb_pct}% · `}
-                {analysis.s_pct != null && `S ${analysis.s_pct}% · `}
-                {analysis.humidity_pct != null && `Humedad ${analysis.humidity_pct}%`}
-              </div>
-              {analysis.notes && <div className="text-xs text-slate-500">Notas: {analysis.notes}</div>}
-            </div>
-            <DeleteRowButton
-              action={deleteLabAnalysis.bind(null, lot.id, analysis.id)}
-              confirmText="¿Eliminar este resultado de laboratorio?"
-            />
-          </div>
+          <LabAnalysisRow
+            lotId={lot.id}
+            analysis={analysis}
+            estimatedAu={lot.estimated_au}
+            estimatedAg={lot.estimated_ag}
+            estimatedPb={lot.estimated_pb}
+          />
         ) : (
           <LabAnalysisForm lotId={lot.id} />
         )}
@@ -450,31 +324,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
       <Section title="Valorización definitiva y liquidación">
         {settlement ? (
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
-            <div className="space-y-1 text-slate-400">
-              <Row label="Precio definitivo /TMH" value={fmtUSD(settlement.precio_definitivo_per_tmh)} strong />
-              <Row label="Total definitivo" value={fmtUSD(settlement.precio_definitivo_total, 0)} />
-              <Row label="Ya pagado (provisional)" value={fmtUSD(settlement.provisional_pagado_total, 0)} />
-              <div className="border-t border-dashed border-slate-200 pt-1">
-                <Row
-                  label={settlement.saldo_pendiente >= 0 ? "Saldo a favor del proveedor" : "Saldo a favor de Ginebra"}
-                  value={fmtUSD(Math.abs(settlement.saldo_pendiente), 0)}
-                  strong
-                />
-              </div>
-              {(settlement.final_invoice_number || settlement.credit_debit_note_number) && (
-                <div className="text-xs text-slate-500">
-                  {settlement.final_invoice_number && `Factura final: ${settlement.final_invoice_number} · `}
-                  {settlement.credit_debit_note_number && `N/C-D: ${settlement.credit_debit_note_number}`}
-                </div>
-              )}
-              {settlement.notes && <div className="text-xs text-slate-500">Notas: {settlement.notes}</div>}
-            </div>
-            <DeleteRowButton
-              action={deleteSettlement.bind(null, lot.id, settlement.id)}
-              confirmText="¿Eliminar esta liquidación definitiva?"
-            />
-          </div>
+          <SettlementRow lotId={lot.id} settlement={settlement} />
         ) : !analysis ? (
           <p className="text-sm text-slate-500">
             Falta el resultado de laboratorio para poder calcular la valorización definitiva.
@@ -585,28 +435,6 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
       <span className={`font-mono ${strong ? "text-sm font-semibold text-gold-700" : "text-slate-400"}`}>
         {value}
       </span>
-    </div>
-  );
-}
-
-function MetalCompareRow({
-  label,
-  unit,
-  real,
-  estimated,
-}: {
-  label: string;
-  unit: string;
-  real: number | null;
-  estimated: number | null;
-}) {
-  if (real == null) return null;
-  const isLow = estimated != null && real < estimated;
-  return (
-    <div className={`text-xs ${isLow ? "text-amber-700" : "text-slate-400"}`}>
-      {label}: {real} {unit}
-      {estimated != null && ` (estimado: ${estimated} ${unit})`}
-      {isLow && " — menor al estimado, revisar"}
     </div>
   );
 }

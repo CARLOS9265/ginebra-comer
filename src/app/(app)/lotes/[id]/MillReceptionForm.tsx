@@ -1,40 +1,92 @@
 "use client";
 
-import { useActionState } from "react";
-import { createMillReception, type LogisticsFormState } from "./actions";
+import { useActionState, useEffect, useRef } from "react";
+import { createMillReception, updateMillReception, type LogisticsFormState } from "./actions";
 
-export function MillReceptionForm({ lotId }: { lotId: string }) {
-  const boundAction = createMillReception.bind(null, lotId);
+function toLocalInputValue(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+type InitialValues = {
+  received_at: string | null;
+  supervisor_name: string | null;
+  storage_location: string | null;
+  incidents: string | null;
+};
+
+export function MillReceptionForm({
+  lotId,
+  receptionId,
+  initialValues,
+  onDone,
+}: {
+  lotId: string;
+  receptionId?: string;
+  initialValues?: InitialValues;
+  onDone?: () => void;
+}) {
+  const boundAction = receptionId
+    ? updateMillReception.bind(null, lotId, receptionId)
+    : createMillReception.bind(null, lotId);
   const [state, action, pending] = useActionState<LogisticsFormState, FormData>(boundAction, null);
+  const prevPending = useRef(false);
+  useEffect(() => {
+    if (prevPending.current && !pending && state == null) onDone?.();
+    prevPending.current = pending;
+  }, [pending, state, onDone]);
 
   return (
     <form action={action} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Fecha y hora de recepción</span>
-          <input name="received_at" type="datetime-local" className={inputClass} />
+          <input
+            name="received_at"
+            type="datetime-local"
+            defaultValue={toLocalInputValue(initialValues?.received_at ?? null)}
+            className={inputClass}
+          />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Supervisor que recibe</span>
-          <input name="supervisor_name" className={inputClass} />
+          <input name="supervisor_name" defaultValue={initialValues?.supervisor_name ?? ""} className={inputClass} />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Ubicación de almacenamiento</span>
-          <input name="storage_location" className={inputClass} />
+          <input
+            name="storage_location"
+            defaultValue={initialValues?.storage_location ?? ""}
+            className={inputClass}
+          />
         </label>
         <label className="col-span-2 block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Incidentes</span>
-          <textarea name="incidents" rows={2} className={`${inputClass} resize-none`} />
+          <textarea
+            name="incidents"
+            rows={2}
+            defaultValue={initialValues?.incidents ?? ""}
+            className={`${inputClass} resize-none`}
+          />
         </label>
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg bg-navy-800 px-4 py-2 text-sm font-medium text-white hover:bg-navy-700 disabled:opacity-60"
-      >
-        {pending ? "Guardando..." : "+ Registrar recepción"}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-navy-800 px-4 py-2 text-sm font-medium text-white hover:bg-navy-700 disabled:opacity-60"
+        >
+          {pending ? "Guardando..." : receptionId ? "Guardar cambios" : "+ Registrar recepción"}
+        </button>
+        {onDone && (
+          <button type="button" onClick={onDone} className="text-xs text-slate-500 hover:underline">
+            Cancelar
+          </button>
+        )}
+      </div>
     </form>
   );
 }

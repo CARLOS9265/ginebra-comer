@@ -86,6 +86,32 @@ export async function createTransportEvent(
   return null;
 }
 
+export async function updateTransportEvent(
+  lotId: string,
+  eventId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede editar este registro." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("transport_events")
+    .update({
+      carrier_name: str(formData, "carrier_name") || null,
+      tariff_pen_per_tmh: num(formData, "tariff_pen_per_tmh"),
+      security_cost_pen: num(formData, "security_cost_pen"),
+    })
+    .eq("id", eventId);
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
 export async function deleteTransportEvent(lotId: string, eventId: string) {
   const { profile } = await getCurrentUser();
   if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
@@ -136,6 +162,39 @@ export async function createWeighing(
   return null;
 }
 
+export async function updateWeighing(
+  lotId: string,
+  weighingId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede editar este registro." };
+  }
+
+  const type = str(formData, "type");
+  if (!["inicial", "oficial", "regularizacion"].includes(type)) {
+    return { error: "Elegí un tipo de pesaje válido." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("weighings")
+    .update({
+      type,
+      net_weight: num(formData, "net_weight"),
+      ticket_number: str(formData, "ticket_number") || null,
+      weighed_at: str(formData, "weighed_at") ? new Date(str(formData, "weighed_at")).toISOString() : null,
+      reason: str(formData, "reason") || null,
+    })
+    .eq("id", weighingId);
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
 export async function deleteWeighing(lotId: string, weighingId: string) {
   const { profile } = await getCurrentUser();
   if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
@@ -172,6 +231,33 @@ export async function createMillReception(
 
   await advanceLotStatus(supabase, lotId, "recibido_molino", profile.id);
 
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function updateMillReception(
+  lotId: string,
+  receptionId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede editar este registro." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("mill_receptions")
+    .update({
+      received_at: str(formData, "received_at") ? new Date(str(formData, "received_at")).toISOString() : null,
+      supervisor_name: str(formData, "supervisor_name") || null,
+      storage_location: str(formData, "storage_location") || null,
+      incidents: str(formData, "incidents") || null,
+    })
+    .eq("id", receptionId);
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
   return null;
 }
@@ -214,6 +300,35 @@ export async function createComminution(
 
   await advanceLotStatus(supabase, lotId, "conminuido", profile.id);
 
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function updateComminution(
+  lotId: string,
+  comminutionId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede editar este registro." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("comminutions")
+    .update({
+      started_at: str(formData, "started_at") ? new Date(str(formData, "started_at")).toISOString() : null,
+      finished_at: str(formData, "finished_at") ? new Date(str(formData, "finished_at")).toISOString() : null,
+      processed_tons: num(formData, "processed_tons"),
+      mill_invoice_number: str(formData, "mill_invoice_number") || null,
+      tariff_pen_per_ton: num(formData, "tariff_pen_per_ton"),
+      bag_count: num(formData, "bag_count"),
+    })
+    .eq("id", comminutionId);
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
   return null;
 }
@@ -262,6 +377,53 @@ export async function createLabAnalysis(
 
   await advanceLotStatus(supabase, lotId, "en_laboratorio", profile.id);
 
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function updateLabAnalysis(
+  lotId: string,
+  analysisId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede editar este registro." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: settlement } = await supabase
+    .from("lot_settlements")
+    .select("id")
+    .eq("lab_analysis_id", analysisId)
+    .maybeSingle();
+  if (settlement) {
+    return {
+      error: "No se puede editar: ya hay una liquidación definitiva calculada con este resultado. Borrá esa primero.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("lab_analyses")
+    .update({
+      sampled_at: str(formData, "sampled_at") ? new Date(str(formData, "sampled_at")).toISOString() : null,
+      analyzed_at: str(formData, "analyzed_at") ? new Date(str(formData, "analyzed_at")).toISOString() : null,
+      lab_name: str(formData, "lab_name") || null,
+      report_number: str(formData, "report_number") || null,
+      au_gt: num(formData, "au_gt"),
+      ag_gt: num(formData, "ag_gt"),
+      pb_pct: num(formData, "pb_pct"),
+      as_pct: num(formData, "as_pct"),
+      sb_pct: num(formData, "sb_pct"),
+      s_pct: num(formData, "s_pct"),
+      humidity_pct: num(formData, "humidity_pct"),
+      notes: str(formData, "notes") || null,
+    })
+    .eq("id", analysisId);
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
   return null;
 }
@@ -391,6 +553,44 @@ export async function createSettlement(
 
   await advanceLotStatus(supabase, lotId, "valorizado", profile.id);
 
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function updateSettlement(
+  lotId: string,
+  settlementId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !SETTLEMENT_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede editar la liquidación." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: settlement } = await supabase
+    .from("lot_settlements")
+    .select("paid_at")
+    .eq("id", settlementId)
+    .maybeSingle();
+  if (settlement?.paid_at) {
+    return { error: "No se puede editar: la liquidación ya está marcada como pagada." };
+  }
+
+  // Solo se editan los datos administrativos — los montos calculados no se
+  // tocan a mano; si cambió la ley o el peso, hay que borrar y recalcular.
+  const { error } = await supabase
+    .from("lot_settlements")
+    .update({
+      final_invoice_number: str(formData, "final_invoice_number") || null,
+      credit_debit_note_number: str(formData, "credit_debit_note_number") || null,
+      notes: str(formData, "notes") || null,
+    })
+    .eq("id", settlementId);
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
   return null;
 }
