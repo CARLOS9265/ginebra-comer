@@ -10,7 +10,18 @@ export function BigBagForm({ lotId, comminutionId }: { lotId: string; comminutio
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
       <label className="block">
-        <span className="mb-1.5 block text-xs font-medium text-slate-500">Peso (kg)</span>
+        <span className="mb-1.5 block text-xs font-medium text-slate-500">Cantidad de bolsones</span>
+        <input
+          name="quantity"
+          type="number"
+          step="1"
+          min="1"
+          defaultValue="1"
+          className="w-24 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-gold-500"
+        />
+      </label>
+      <label className="block">
+        <span className="mb-1.5 block text-xs font-medium text-slate-500">Peso por bolsón (kg)</span>
         <input
           name="weight_kg"
           type="number"

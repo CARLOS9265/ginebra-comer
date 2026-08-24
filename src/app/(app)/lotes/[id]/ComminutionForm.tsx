@@ -31,10 +31,6 @@ export function ComminutionForm({ lotId, officialWeightHint }: { lotId: string; 
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Tarifa (S/ por tonelada)</span>
           <input name="tariff_pen_per_ton" type="number" step="0.01" defaultValue="80" className={inputClass} />
         </label>
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Responsable</span>
-          <input name="responsible_name" className={inputClass} />
-        </label>
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       <button

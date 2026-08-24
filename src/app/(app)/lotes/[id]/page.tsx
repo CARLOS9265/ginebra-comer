@@ -89,7 +89,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       supabase
         .from("comminutions")
         .select(
-          "id, started_at, finished_at, processed_tons, mill_invoice_number, tariff_pen_per_ton, responsible_name",
+          "id, started_at, finished_at, processed_tons, mill_invoice_number, tariff_pen_per_ton",
         )
         .eq("purchase_lot_id", id)
         .order("created_at", { ascending: false }),
@@ -345,7 +345,6 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
             <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
               <div className="space-y-0.5 text-slate-400">
                 <div>
-                  {comminution.responsible_name ?? "Responsable sin datos"} ·{" "}
                   {fmtDate(comminution.started_at) ?? "Sin fecha de inicio"}
                   {comminution.finished_at && ` → ${fmtDate(comminution.finished_at)}`}
                 </div>

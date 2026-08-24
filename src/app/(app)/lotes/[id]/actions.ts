@@ -206,7 +206,6 @@ export async function createComminution(
     processed_tons: num(formData, "processed_tons"),
     mill_invoice_number: str(formData, "mill_invoice_number") || null,
     tariff_pen_per_ton: num(formData, "tariff_pen_per_ton"),
-    responsible_name: str(formData, "responsible_name") || null,
     created_by: profile.id,
   });
 
@@ -247,6 +246,7 @@ export async function addBigBag(
   }
 
   const weight = num(formData, "weight_kg");
+  const quantity = Math.max(1, Math.trunc(num(formData, "quantity") ?? 1));
   const supabase = await createClient();
 
   const { data: lot } = await supabase
@@ -261,17 +261,17 @@ export async function addBigBag(
     .select("id", { count: "exact", head: true })
     .eq("purchase_lot_id", lotId);
 
-  const seq = (count ?? 0) + 1;
-  const code = `GIN-${lot.code}-BB${String(seq).padStart(2, "0")}`;
-
-  const { error } = await supabase.from("big_bags").insert({
-    code,
+  const startSeq = (count ?? 0) + 1;
+  const rows = Array.from({ length: quantity }, (_, i) => ({
+    code: `GIN-${lot.code}-BB${String(startSeq + i).padStart(2, "0")}`,
     purchase_lot_id: lotId,
     comminution_id: comminutionId,
     weight_kg: weight,
     storage_location: str(formData, "storage_location") || null,
     created_by: profile.id,
-  });
+  }));
+
+  const { error } = await supabase.from("big_bags").insert(rows);
 
   if (error) {
     if (error.code === "23505") {
