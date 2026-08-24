@@ -135,3 +135,161 @@ export async function deleteSaleLot(saleLotId: string) {
   revalidatePath("/big-bags");
   redirect("/ventas");
 }
+
+function str(formData: FormData, key: string): string {
+  return String(formData.get(key) ?? "").trim();
+}
+
+export async function dispatchSaleLot(
+  saleLotId: string,
+  _prevState: SaleLotFormState,
+  formData: FormData,
+): Promise<SaleLotFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede registrar el despacho." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: saleLot } = await supabase
+    .from("sale_lots")
+    .select("status")
+    .eq("id", saleLotId)
+    .maybeSingle();
+  if (!saleLot || saleLot.status !== "armado") {
+    return { error: "Este lote de venta ya fue despachado." };
+  }
+
+  const dispatchedAt = str(formData, "dispatched_at");
+
+  const { error } = await supabase
+    .from("sale_lots")
+    .update({
+      status: "despachado",
+      dispatched_at: dispatchedAt ? new Date(dispatchedAt).toISOString() : new Date().toISOString(),
+      dispatch_carrier: str(formData, "dispatch_carrier") || null,
+      dispatch_truck_plate: str(formData, "dispatch_truck_plate") || null,
+      updated_by: profile.id,
+    })
+    .eq("id", saleLotId);
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  await supabase.from("big_bags").update({ status: "despachado" }).eq("sale_lot_id", saleLotId);
+
+  revalidatePath(`/ventas/${saleLotId}`);
+  revalidatePath("/big-bags");
+  return null;
+}
+
+export async function undoDispatch(saleLotId: string) {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede deshacer el despacho." };
+  }
+
+  const supabase = await createClient();
+  const { data: saleLot } = await supabase
+    .from("sale_lots")
+    .select("status")
+    .eq("id", saleLotId)
+    .maybeSingle();
+  if (!saleLot || saleLot.status !== "despachado") {
+    return { error: "Solo se puede deshacer mientras está en estado 'despachado'." };
+  }
+
+  const { error } = await supabase
+    .from("sale_lots")
+    .update({
+      status: "armado",
+      dispatched_at: null,
+      dispatch_carrier: null,
+      dispatch_truck_plate: null,
+      updated_by: profile.id,
+    })
+    .eq("id", saleLotId);
+  if (error) return { error: `No se pudo deshacer: ${error.message}` };
+
+  await supabase.from("big_bags").update({ status: "reservado" }).eq("sale_lot_id", saleLotId);
+
+  revalidatePath(`/ventas/${saleLotId}`);
+  revalidatePath("/big-bags");
+}
+
+export async function receiveSaleLotAtPY(
+  saleLotId: string,
+  _prevState: SaleLotFormState,
+  formData: FormData,
+): Promise<SaleLotFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede registrar la recepción en PY." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: saleLot } = await supabase
+    .from("sale_lots")
+    .select("status")
+    .eq("id", saleLotId)
+    .maybeSingle();
+  if (!saleLot || saleLot.status !== "despachado") {
+    return { error: "Este lote todavía no fue despachado, o ya fue recibido." };
+  }
+
+  const receivedAt = str(formData, "received_at_py");
+
+  const { error } = await supabase
+    .from("sale_lots")
+    .update({
+      status: "recibido_py",
+      received_at_py: receivedAt ? new Date(receivedAt).toISOString() : new Date().toISOString(),
+      py_warehouse: str(formData, "py_warehouse") || null,
+      py_received_by: str(formData, "py_received_by") || null,
+      updated_by: profile.id,
+    })
+    .eq("id", saleLotId);
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  await supabase.from("big_bags").update({ status: "recibido_py" }).eq("sale_lot_id", saleLotId);
+
+  revalidatePath(`/ventas/${saleLotId}`);
+  revalidatePath("/big-bags");
+  return null;
+}
+
+export async function undoPyReception(saleLotId: string) {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede deshacer la recepción." };
+  }
+
+  const supabase = await createClient();
+  const { data: saleLot } = await supabase
+    .from("sale_lots")
+    .select("status")
+    .eq("id", saleLotId)
+    .maybeSingle();
+  if (!saleLot || saleLot.status !== "recibido_py") {
+    return { error: "Solo se puede deshacer mientras está en estado 'recibido_py'." };
+  }
+
+  const { error } = await supabase
+    .from("sale_lots")
+    .update({
+      status: "despachado",
+      received_at_py: null,
+      py_warehouse: null,
+      py_received_by: null,
+      updated_by: profile.id,
+    })
+    .eq("id", saleLotId);
+  if (error) return { error: `No se pudo deshacer: ${error.message}` };
+
+  await supabase.from("big_bags").update({ status: "despachado" }).eq("sale_lot_id", saleLotId);
+
+  revalidatePath(`/ventas/${saleLotId}`);
+  revalidatePath("/big-bags");
+}

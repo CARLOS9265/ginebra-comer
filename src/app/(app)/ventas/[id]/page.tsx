@@ -3,10 +3,19 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SALE_LOT_STATUS_LABELS } from "@/lib/sale-lot-status";
 import { DeleteRowButton } from "@/components/DeleteRowButton";
-import { removeBigBagFromSaleLot, deleteSaleLot } from "../actions";
+import { ActionButton } from "@/components/ActionButton";
+import {
+  removeBigBagFromSaleLot,
+  deleteSaleLot,
+  undoDispatch,
+  undoPyReception,
+} from "../actions";
 import { AddBigBagsSection } from "./AddBigBagsSection";
+import { DispatchForm } from "./DispatchForm";
+import { PyReceptionForm } from "./PyReceptionForm";
 
 const fmtKg = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("es-PE")} kg`);
+const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("es-PE") : null);
 
 export default async function SaleLotDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,7 +23,9 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
 
   const { data: saleLot } = await supabase
     .from("sale_lots")
-    .select("id, code, status, notes, created_at")
+    .select(
+      "id, code, status, notes, created_at, dispatched_at, dispatch_carrier, dispatch_truck_plate, received_at_py, py_warehouse, py_received_by",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -113,6 +124,62 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
 
       {saleLot.status === "armado" && (
         <AddBigBagsSection saleLotId={saleLot.id} bags={availableRows} />
+      )}
+
+      <div>
+        <h2 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Despacho
+        </h2>
+        {saleLot.dispatched_at ? (
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <div className="text-slate-600">
+              {saleLot.dispatch_carrier ?? "Transportista sin datos"} · {fmtDate(saleLot.dispatched_at)}
+              {saleLot.dispatch_truck_plate && ` · Placa ${saleLot.dispatch_truck_plate}`}
+            </div>
+            {saleLot.status === "despachado" && (
+              <ActionButton
+                action={undoDispatch.bind(null, saleLot.id)}
+                label="Deshacer"
+                pendingLabel="Deshaciendo..."
+                variant="danger"
+                confirmText="¿Deshacer el despacho? El lote vuelve a estado 'armado'."
+              />
+            )}
+          </div>
+        ) : saleLot.status === "armado" ? (
+          <DispatchForm saleLotId={saleLot.id} />
+        ) : (
+          <p className="text-sm text-slate-500">—</p>
+        )}
+      </div>
+
+      {saleLot.dispatched_at && (
+        <div>
+          <h2 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Recepción en PY
+          </h2>
+          {saleLot.received_at_py ? (
+            <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+              <div className="text-slate-600">
+                {saleLot.py_received_by ?? "Sin datos de quién recibió"} · {fmtDate(saleLot.received_at_py)}
+                {saleLot.py_warehouse && ` · ${saleLot.py_warehouse}`}
+              </div>
+              {saleLot.status === "recibido_py" && (
+                <ActionButton
+                  action={undoPyReception.bind(null, saleLot.id)}
+                  label="Deshacer"
+                  pendingLabel="Deshaciendo..."
+                  variant="danger"
+                  confirmText="¿Deshacer la recepción en PY? El lote vuelve a estado 'despachado'."
+                />
+              )}
+            </div>
+          ) : saleLot.status === "despachado" ? (
+            <PyReceptionForm saleLotId={saleLot.id} />
+          ) : (
+            <p className="text-sm text-slate-500">—</p>
+          )}
+        </div>
       )}
     </div>
   );
