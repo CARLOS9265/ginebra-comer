@@ -544,16 +544,30 @@ requerir tarjeta) en vez de la API de Anthropic.
   sobre alertas/agenda y sobre lotes sin liquidar devolvieron respuestas
   correctas cruzando varias tablas.
 
-**Edición en el lugar (todas las pantallas de compra y venta).** El usuario pidió
-explícitamente que "cada cosa que se genere tenga la opción de editable" — antes,
-casi todo (transporte, pesajes, molino, conminución, laboratorio, ensayes de PY,
-etc.) solo se podía cargar y después borrar, sin poder corregir un dato sin
-borrar todo. Ahora cada sección de `/lotes/[id]`, `/ventas/[id]` y
-`/muestreo/[id]` tiene un botón "Editar" que reabre el mismo formulario
-precargado, en vez de forzar un borrar-y-recargar. Patrón usado en cada caso:
-un componente `*Row.tsx` chico (client) con estado local de edición, que
-muestra la vista o el formulario precargado, y se cierra solo al guardar con
-éxito (`useEffect` que detecta la transición pending→listo).
+**Edición en el lugar (todas las pantallas de compra y venta, y ahora también
+Programación).** El usuario pidió explícitamente que "cada cosa que se genere
+tenga la opción de editable" — antes, casi todo (transporte, pesajes, molino,
+conminución, laboratorio, ensayes de PY, etc.) solo se podía cargar y después
+borrar, sin poder corregir un dato sin borrar todo. Ahora cada sección de
+`/lotes/[id]`, `/ventas/[id]` y `/muestreo/[id]` tiene un botón "Editar" que
+reabre el mismo formulario precargado, en vez de forzar un borrar-y-recargar.
+Patrón usado en cada caso: un componente `*Row.tsx` chico (client) con estado
+local de edición, que muestra la vista o el formulario precargado, y se
+cierra solo al guardar con éxito (`useEffect` que detecta la transición
+pending→listo).
+- `/calendario` (Programación de volquetes) se había quedado afuera de este
+  patrón — el usuario lo notó ("aquí no sale editar") y se corrigió: nueva
+  acción `updateSchedule` en `calendario/actions.ts`, y `ScheduleRow` en
+  `CalendarView.tsx` ahora tiene estado local `editing` que muestra
+  `ScheduleForm` precargado (mismo componente que crea, con un prop
+  `editing` opcional) en vez de la vista. El tipo (compra/despacho) no es
+  editable — cambiarlo requeriría otro juego de campos — pero sí hora,
+  proveedor/destino, placa, transportista, bolsones estimados y notas. De
+  paso se encontró y arregló un bug real preexistente: la consulta de
+  `/calendario` traía `providers(name, code)` sin el `id`, así que aunque el
+  formulario de edición se hubiera armado, no habría podido preseleccionar
+  el proveedor correcto (era además uno de los 3 errores de TypeScript
+  preexistentes que veníamos arrastrando — ya son 2).
 - Donde un dato ya alimentó un cálculo de plata más abajo, la edición queda
   **bloqueada igual que ya estaba bloqueado el borrado**: laboratorio de
   compra una vez que hay liquidación definitiva, ensaye provisional/final de

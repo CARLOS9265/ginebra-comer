@@ -10,7 +10,7 @@ import {
   shiftMonth,
   todayISO,
 } from "@/lib/calendar";
-import { createSchedule, deleteSchedule, updateScheduleStatus, type ScheduleFormState } from "./actions";
+import { createSchedule, deleteSchedule, updateSchedule, updateScheduleStatus, type ScheduleFormState } from "./actions";
 import { CARRIERS } from "@/lib/carriers";
 
 type Provider = { id: string; code: string; name: string };
@@ -179,7 +179,7 @@ function DayPanel({
       {items.length > 0 && (
         <ul className="mt-4 space-y-3">
           {items.map((it) => (
-            <ScheduleRow key={it.id} item={it} />
+            <ScheduleRow key={it.id} item={it} providers={providers} />
           ))}
         </ul>
       )}
@@ -197,8 +197,23 @@ function DayPanel({
   );
 }
 
-function ScheduleRow({ item }: { item: ScheduleItem }) {
+function ScheduleRow({ item, providers }: { item: ScheduleItem; providers: Provider[] }) {
+  const [editing, setEditing] = useState(false);
   const provider = providerOf(item);
+
+  if (editing) {
+    return (
+      <li className="rounded-lg border border-gold-300 bg-white p-3 text-sm">
+        <ScheduleForm
+          date={item.scheduled_date}
+          providers={providers}
+          editing={item}
+          onDone={() => setEditing(false)}
+        />
+      </li>
+    );
+  }
+
   return (
     <li className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
       <div className="flex items-center justify-between">
@@ -232,15 +247,20 @@ function ScheduleRow({ item }: { item: ScheduleItem }) {
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          onClick={() => {
-            if (confirm("¿Eliminar esta programación?")) deleteSchedule(item.id);
-          }}
-          className="text-xs text-red-600 hover:underline"
-        >
-          Eliminar
-        </button>
+        <div className="flex gap-3">
+          <button type="button" onClick={() => setEditing(true)} className="text-xs text-gold-700 hover:underline">
+            Editar
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("¿Eliminar esta programación?")) deleteSchedule(item.id);
+            }}
+            className="text-xs text-red-600 hover:underline"
+          >
+            Eliminar
+          </button>
+        </div>
       </div>
     </li>
   );
@@ -249,16 +269,21 @@ function ScheduleRow({ item }: { item: ScheduleItem }) {
 function ScheduleForm({
   date,
   providers,
+  editing,
   onDone,
 }: {
   date: string;
   providers: Provider[];
+  editing?: ScheduleItem;
   onDone: () => void;
 }) {
-  const [type, setType] = useState<"compra" | "despacho">("compra");
+  const [type, setType] = useState<"compra" | "despacho">(editing?.type ?? "compra");
+  const editingProvider = editing ? providerOf(editing) : null;
   const [state, action, pending] = useActionState<ScheduleFormState, FormData>(
     async (prev, formData) => {
-      const result = await createSchedule(prev, formData);
+      const result = editing
+        ? await updateSchedule(editing.id, type, prev, formData)
+        : await createSchedule(prev, formData);
       if (!result?.error) onDone();
       return result;
     },
@@ -269,21 +294,36 @@ function ScheduleForm({
     <form action={action} className="space-y-3">
       <input type="hidden" name="scheduled_date" value={date} />
 
-      <div className="flex gap-2">
-        <TypeButton label="Compra" active={type === "compra"} onClick={() => setType("compra")} />
-        <TypeButton label="Despacho a Lima" active={type === "despacho"} onClick={() => setType("despacho")} />
-      </div>
+      {editing ? (
+        <span
+          className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${
+            type === "compra" ? "bg-gold-100 text-gold-600" : "bg-purple-100 text-purple-700"
+          }`}
+        >
+          {type === "compra" ? "Compra" : "Despacho a Lima"}
+        </span>
+      ) : (
+        <div className="flex gap-2">
+          <TypeButton label="Compra" active={type === "compra"} onClick={() => setType("compra")} />
+          <TypeButton label="Despacho a Lima" active={type === "despacho"} onClick={() => setType("despacho")} />
+        </div>
+      )}
       <input type="hidden" name="type" value={type} />
 
       <label className="block">
         <FieldLabel>Hora estimada</FieldLabel>
-        <input name="scheduled_time" type="time" className={inputClass} />
+        <input
+          name="scheduled_time"
+          type="time"
+          defaultValue={editing?.scheduled_time?.slice(0, 5) ?? ""}
+          className={inputClass}
+        />
       </label>
 
       {type === "compra" ? (
         <label className="block">
           <FieldLabel>Proveedor</FieldLabel>
-          <select name="provider_id" required className={inputClass}>
+          <select name="provider_id" required defaultValue={editingProvider?.id ?? ""} className={inputClass}>
             <option value="">Elegir...</option>
             {providers.map((p) => (
               <option key={p.id} value={p.id}>
@@ -296,11 +336,22 @@ function ScheduleForm({
         <>
           <label className="block">
             <FieldLabel>Destino</FieldLabel>
-            <input name="destination" type="text" defaultValue="PY - Lima" className={inputClass} />
+            <input
+              name="destination"
+              type="text"
+              defaultValue={editing?.destination ?? "PY - Lima"}
+              className={inputClass}
+            />
           </label>
           <label className="block">
             <FieldLabel>Big bags estimados</FieldLabel>
-            <input name="estimated_big_bags" type="number" min="0" className={inputClass} />
+            <input
+              name="estimated_big_bags"
+              type="number"
+              min="0"
+              defaultValue={editing?.estimated_big_bags ?? ""}
+              className={inputClass}
+            />
           </label>
         </>
       )}
@@ -308,11 +359,11 @@ function ScheduleForm({
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
           <FieldLabel>Placa</FieldLabel>
-          <input name="truck_plate" type="text" className={inputClass} />
+          <input name="truck_plate" type="text" defaultValue={editing?.truck_plate ?? ""} className={inputClass} />
         </label>
         <label className="block">
           <FieldLabel>Transportista</FieldLabel>
-          <select name="carrier_name" defaultValue="" className={inputClass}>
+          <select name="carrier_name" defaultValue={editing?.carrier_name ?? ""} className={inputClass}>
             <option value="">Elegir...</option>
             {CARRIERS.map((c) => (
               <option key={c} value={c}>
@@ -325,18 +376,29 @@ function ScheduleForm({
 
       <label className="block">
         <FieldLabel>Notas</FieldLabel>
-        <textarea name="notes" rows={2} className={`${inputClass} resize-none`} />
+        <textarea name="notes" rows={2} defaultValue={editing?.notes ?? ""} className={`${inputClass} resize-none`} />
       </label>
 
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-lg bg-navy-800 py-2 text-sm font-medium text-white hover:bg-navy-700 disabled:opacity-60"
-      >
-        {pending ? "Guardando..." : "Programar"}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={pending}
+          className="flex-1 rounded-lg bg-navy-800 py-2 text-sm font-medium text-white hover:bg-navy-700 disabled:opacity-60"
+        >
+          {pending ? "Guardando..." : editing ? "Guardar cambios" : "Programar"}
+        </button>
+        {editing && (
+          <button
+            type="button"
+            onClick={onDone}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-500 hover:bg-slate-100"
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
     </form>
   );
 }

@@ -53,6 +53,44 @@ export async function createSchedule(
   return null;
 }
 
+export async function updateSchedule(
+  id: string,
+  type: "compra" | "despacho",
+  _prevState: ScheduleFormState,
+  formData: FormData,
+): Promise<ScheduleFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede editar programaciones." };
+  }
+
+  if (type === "compra" && !str(formData, "provider_id")) {
+    return { error: "Elegí el proveedor del que viene el volquete." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("truck_schedule")
+    .update({
+      scheduled_time: str(formData, "scheduled_time") || null,
+      provider_id: type === "compra" ? str(formData, "provider_id") || null : null,
+      destination: type === "despacho" ? str(formData, "destination") || "PY - Lima" : null,
+      estimated_big_bags:
+        type === "despacho" && str(formData, "estimated_big_bags")
+          ? Number(formData.get("estimated_big_bags"))
+          : null,
+      truck_plate: str(formData, "truck_plate") || null,
+      carrier_name: str(formData, "carrier_name") || null,
+      notes: str(formData, "notes") || null,
+    })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/calendario");
+  return null;
+}
+
 export async function updateScheduleStatus(id: string, status: string) {
   const { profile } = await getCurrentUser();
   if (!profile || !ALLOWED_ROLES.includes(profile.role)) return;

@@ -16,7 +16,7 @@ export default async function CalendarPage({
     supabase
       .from("truck_schedule")
       .select(
-        "id, type, scheduled_date, scheduled_time, status, destination, estimated_big_bags, truck_plate, carrier_name, notes, providers(name, code)",
+        "id, type, scheduled_date, scheduled_time, status, destination, estimated_big_bags, truck_plate, carrier_name, notes, providers(id, name, code)",
       )
       .gte("scheduled_date", start)
       .lte("scheduled_date", end)
