@@ -562,12 +562,30 @@ pending→listo).
   `ScheduleForm` precargado (mismo componente que crea, con un prop
   `editing` opcional) en vez de la vista. El tipo (compra/despacho) no es
   editable — cambiarlo requeriría otro juego de campos — pero sí hora,
-  proveedor/destino, placa, transportista, bolsones estimados y notas. De
-  paso se encontró y arregló un bug real preexistente: la consulta de
-  `/calendario` traía `providers(name, code)` sin el `id`, así que aunque el
-  formulario de edición se hubiera armado, no habría podido preseleccionar
-  el proveedor correcto (era además uno de los 3 errores de TypeScript
-  preexistentes que veníamos arrastrando — ya son 2).
+  proveedor/destino, placa, transportista y bolsones estimados. De paso se
+  encontró y arregló un bug real preexistente: la consulta de `/calendario`
+  traía `providers(name, code)` sin el `id`, así que aunque el formulario de
+  edición se hubiera armado, no habría podido preseleccionar el proveedor
+  correcto (era además uno de los 3 errores de TypeScript preexistentes que
+  veníamos arrastrando — ya son 2).
+- El campo "Notas" se sacó del formulario (a pedido del usuario, no se usaba).
+  Los estados de una programación quedaron reducidos a **Programado /
+  Confirmado / Cancelado** (se sacó "Completado" de las opciones — el valor
+  sigue existiendo en el enum de la base por si algún registro viejo lo
+  tuviera, pero ya no se puede elegir).
+- **Al confirmar un volquete de tipo Compra, se genera solo el lote de
+  compra** (a pedido del usuario) — la columna `truck_schedule.purchase_lot_id`
+  ya existía en la migración 0003 pero nunca se había usado. `updateScheduleStatus`
+  ahora, cuando el nuevo estado es "confirmado", llama a
+  `createPurchaseLotForSchedule` (mismo generador de código `next_lot_seq`
+  que usa el alta manual de lotes) y crea el lote en estado "creado" con
+  proveedor/placa/transportista/fecha de la programación — el peso real, el
+  precio y todo lo demás se completan después a mano en el detalle del lote,
+  igual que si se hubiese creado ahí directamente. Si el volquete ya tenía un
+  lote vinculado (o es de tipo despacho, o le falta proveedor) no hace nada.
+  El resultado se muestra debajo del selector de estado ("Se generó el lote
+  BUS-26-08.") o el error si algo falló — antes `updateScheduleStatus` no
+  devolvía nada, ahora devuelve `{ error?, createdLotCode? }`.
 - Donde un dato ya alimentó un cálculo de plata más abajo, la edición queda
   **bloqueada igual que ya estaba bloqueado el borrado**: laboratorio de
   compra una vez que hay liquidación definitiva, ensaye provisional/final de

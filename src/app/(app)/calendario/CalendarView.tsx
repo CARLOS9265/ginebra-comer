@@ -31,7 +31,6 @@ type ScheduleItem = {
 const STATUS_LABELS: Record<string, string> = {
   programado: "Programado",
   confirmado: "Confirmado",
-  completado: "Completado",
   cancelado: "Cancelado",
 };
 
@@ -199,6 +198,7 @@ function DayPanel({
 
 function ScheduleRow({ item, providers }: { item: ScheduleItem; providers: Provider[] }) {
   const [editing, setEditing] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<{ text: string; isError?: boolean } | null>(null);
   const provider = providerOf(item);
 
   if (editing) {
@@ -238,7 +238,16 @@ function ScheduleRow({ item, providers }: { item: ScheduleItem; providers: Provi
       <div className="mt-3 flex items-center justify-between">
         <select
           defaultValue={item.status}
-          onChange={(e) => updateScheduleStatus(item.id, e.target.value)}
+          onChange={async (e) => {
+            const result = await updateScheduleStatus(item.id, e.target.value);
+            if (result?.createdLotCode) {
+              setStatusMsg({ text: `Se generó el lote ${result.createdLotCode}.` });
+            } else if (result?.error) {
+              setStatusMsg({ text: result.error, isError: true });
+            } else {
+              setStatusMsg(null);
+            }
+          }}
           className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-400"
         >
           {Object.entries(STATUS_LABELS).map(([value, label]) => (
@@ -262,6 +271,9 @@ function ScheduleRow({ item, providers }: { item: ScheduleItem; providers: Provi
           </button>
         </div>
       </div>
+      {statusMsg && (
+        <p className={`mt-2 text-xs ${statusMsg.isError ? "text-red-600" : "text-gold-700"}`}>{statusMsg.text}</p>
+      )}
     </li>
   );
 }
@@ -373,11 +385,6 @@ function ScheduleForm({
           </select>
         </label>
       </div>
-
-      <label className="block">
-        <FieldLabel>Notas</FieldLabel>
-        <textarea name="notes" rows={2} defaultValue={editing?.notes ?? ""} className={`${inputClass} resize-none`} />
-      </label>
 
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
 

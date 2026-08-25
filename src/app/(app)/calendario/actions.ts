@@ -91,13 +91,78 @@ export async function updateSchedule(
   return null;
 }
 
-export async function updateScheduleStatus(id: string, status: string) {
+export type UpdateStatusResult = { error?: string; createdLotCode?: string };
+
+export async function updateScheduleStatus(id: string, status: string): Promise<UpdateStatusResult> {
   const { profile } = await getCurrentUser();
-  if (!profile || !ALLOWED_ROLES.includes(profile.role)) return;
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede cambiar el estado." };
+  }
 
   const supabase = await createClient();
-  await supabase.from("truck_schedule").update({ status }).eq("id", id);
+  const { error } = await supabase.from("truck_schedule").update({ status }).eq("id", id);
+  if (error) return { error: error.message };
+
+  let createdLotCode: string | undefined;
+  if (status === "confirmado") {
+    createdLotCode = (await createPurchaseLotForSchedule(supabase, id, profile.id)) ?? undefined;
+  }
+
   revalidatePath("/calendario");
+  revalidatePath("/lotes");
+  return { createdLotCode };
+}
+
+// Al confirmar un volquete de compra, se genera el lote automáticamente (en estado
+// "creado", solo con lo que ya se sabía en la programación) para que operaciones no
+// tenga que cargarlo de nuevo a mano — el peso real, precio y demás se completan
+// después en el detalle del lote, igual que si se hubiese creado a mano.
+async function createPurchaseLotForSchedule(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  scheduleId: string,
+  profileId: string,
+): Promise<string | null> {
+  const { data: item } = await supabase
+    .from("truck_schedule")
+    .select("type, purchase_lot_id, provider_id, scheduled_date, scheduled_time, truck_plate, carrier_name, providers(code)")
+    .eq("id", scheduleId)
+    .maybeSingle();
+
+  if (!item || item.type !== "compra" || item.purchase_lot_id || !item.provider_id) return null;
+
+  const provider = Array.isArray(item.providers) ? item.providers[0] : item.providers;
+  if (!provider?.code) return null;
+
+  const loadedAt = new Date(`${item.scheduled_date}T${item.scheduled_time ?? "00:00"}`);
+  const year = loadedAt.getFullYear();
+
+  const { data: seq, error: seqError } = await supabase.rpc("next_lot_seq", {
+    p_provider_code: provider.code,
+    p_year: year,
+  });
+  if (seqError || seq == null) return null;
+
+  const code = `${provider.code}-${String(year).slice(-2)}-${String(seq).padStart(2, "0")}`;
+
+  const { data: lot, error: insertError } = await supabase
+    .from("purchase_lots")
+    .insert({
+      code,
+      provider_id: item.provider_id,
+      loaded_at: loadedAt.toISOString(),
+      truck_plate: item.truck_plate,
+      carrier_name: item.carrier_name,
+      status: "creado",
+      created_by: profileId,
+      updated_by: profileId,
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !lot) return null;
+
+  await supabase.from("truck_schedule").update({ purchase_lot_id: lot.id }).eq("id", scheduleId);
+  return code;
 }
 
 export async function deleteSchedule(id: string) {
