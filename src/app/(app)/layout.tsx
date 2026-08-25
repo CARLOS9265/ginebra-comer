@@ -2,15 +2,43 @@ import Link from "next/link";
 import { getCurrentUser, ROLE_LABELS } from "@/lib/auth";
 import { signOut } from "@/app/login/actions";
 
-const NAV_LINKS = [
-  { href: "/", label: "Inicio" },
+const NAV_START = [{ href: "/", label: "Inicio" }];
+
+// Los 3 procesos físicos del negocio, cada uno con su color para que se
+// distingan de un vistazo en el menú (pedido del usuario). El resto de las
+// pantallas (proveedores, programación, márgenes, precios, asistente) no
+// pertenece a una sola fase, así que van sueltas al final.
+const NAV_GROUPS = [
+  {
+    label: "Compra",
+    textClass: "text-amber-500",
+    borderClass: "border-amber-500",
+    links: [
+      { href: "/lotes", label: "Lotes de compra" },
+      { href: "/precintos", label: "Precintos" },
+      { href: "/big-bags", label: "Bolsones" },
+    ],
+  },
+  {
+    label: "Almacén",
+    textClass: "text-emerald-500",
+    borderClass: "border-emerald-500",
+    links: [{ href: "/almacen", label: "Almacén" }],
+  },
+  {
+    label: "Venta",
+    textClass: "text-sky-500",
+    borderClass: "border-sky-500",
+    links: [
+      { href: "/ventas", label: "Ventas a PY" },
+      { href: "/muestreo", label: "Muestreo PY" },
+    ],
+  },
+];
+
+const NAV_END = [
   { href: "/proveedores", label: "Proveedores" },
   { href: "/calendario", label: "Programación" },
-  { href: "/lotes", label: "Lotes de compra" },
-  { href: "/precintos", label: "Precintos" },
-  { href: "/big-bags", label: "Bolsones" },
-  { href: "/ventas", label: "Ventas a PY" },
-  { href: "/muestreo", label: "Muestreo PY" },
   { href: "/margenes", label: "Márgenes" },
   { href: "/precios", label: "Precios" },
   { href: "/asistente", label: "Asistente" },
@@ -61,16 +89,49 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </form>
           </div>
         </div>
-        <nav className="mx-auto flex max-w-6xl gap-1 px-6">
-          {NAV_LINKS.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="rounded-t-lg px-3 py-2 text-sm text-navy-200 hover:bg-navy-800 hover:text-gold-400"
-            >
-              {l.label}
-            </Link>
+        <nav className="mx-auto flex max-w-6xl items-end gap-3 px-6">
+          <div className="flex gap-1 pb-1">
+            {NAV_START.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="rounded-t-lg px-3 py-2 text-sm text-navy-200 hover:bg-navy-800 hover:text-gold-400"
+              >
+                {l.label}
+              </Link>
+            ))}
+          </div>
+
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label} className="flex flex-col border-l border-navy-700 pl-3">
+              <span className={`px-3 text-[10px] font-semibold uppercase tracking-wider ${group.textClass}`}>
+                {group.label}
+              </span>
+              <div className={`flex gap-1 border-b-2 pb-1 ${group.borderClass}`}>
+                {group.links.map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className="rounded-t-lg px-3 py-1.5 text-sm text-navy-200 hover:bg-navy-800 hover:text-gold-400"
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
           ))}
+
+          <div className="flex gap-1 border-l border-navy-700 pb-1 pl-3">
+            {NAV_END.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="rounded-t-lg px-3 py-2 text-sm text-navy-200 hover:bg-navy-800 hover:text-gold-400"
+              >
+                {l.label}
+              </Link>
+            ))}
+          </div>
         </nav>
       </header>
       <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>

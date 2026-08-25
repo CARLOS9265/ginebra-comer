@@ -242,6 +242,26 @@ completo. Hecho hasta ahora:
     despachados desde él (final, Lima) — la segunda puede estar vacía si
     todavía no se armó ningún despacho.
 
+**Menú agrupado por proceso + pantalla nueva de Almacén.** El usuario pidió
+separar visualmente los 3 procesos físicos del negocio (compra, traslado a
+almacén, venta) que antes estaban todos mezclados en una sola fila de menú.
+`src/app/(app)/layout.tsx` ahora arma el menú en `NAV_START` (Inicio) +
+`NAV_GROUPS` (Compra en ámbar, Almacén en verde esmeralda, Venta en celeste —
+cada grupo con una etiqueta chica arriba y un subrayado del color del grupo)
++ `NAV_END` (Proveedores, Programación, Márgenes, Precios, Asistente — no
+pertenecen a una sola fase, van sueltos al final). De paso se creó
+`/almacen`, pantalla que no existía: muestra los lotes con liquidación de
+compra ya definitiva que todavía no tienen traslado registrado ("listos
+para trasladar"), y los que ya están físicamente en Huanchaco (peso del
+pesaje propio, costo de montacarga, transportista, fecha de descarga) y
+todavía no fueron agrupados en un muestreo provisional — en cuanto un lote
+entra a un muestreo (`sample_batch_id` dejó de ser null) pasa a verse en
+`/muestreo` en vez de acá, porque a partir de ahí ya es parte del proceso de
+venta (así lo definió el usuario: el muestreo provisional es el arranque de
+venta, no parte de almacén). Es una pantalla de solo lectura — la carga de
+datos del traslado sigue siendo en `/lotes/[id]` (ahí ya estaban los
+formularios).
+
 **El contrato real con PY** (`PYCP-202656 - XXXXX - AG ORES _Vs 30.06.26 (1).docx`,
 en la carpeta del proyecto, **no está en git a propósito** — es un documento
 comercial sensible, no se sube) **se leyó con permiso del usuario** y confirmó
