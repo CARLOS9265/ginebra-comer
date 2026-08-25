@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ginebra — Sistema de trazabilidad",
+  title: "Ginebra Trade Peru SAC — Sistema de trazabilidad",
   description: "Trazabilidad de mineral: compra, laboratorio, blending y liquidación con PY.",
 };
 

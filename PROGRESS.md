@@ -245,11 +245,29 @@ completo. Hecho hasta ahora:
 **Menú agrupado por proceso + pantalla nueva de Almacén.** El usuario pidió
 separar visualmente los 3 procesos físicos del negocio (compra, traslado a
 almacén, venta) que antes estaban todos mezclados en una sola fila de menú.
-`src/app/(app)/layout.tsx` ahora arma el menú en `NAV_START` (Inicio) +
+`src/app/(app)/layout.tsx` ahora arma el menú en `NAV_START` (Inicio,
+Programación — programar el volquete es lo primero que pasa, antes de que
+exista el lote, así que va antes del grupo Compra por orden lógico) +
 `NAV_GROUPS` (Compra en ámbar, Almacén en verde esmeralda, Venta en celeste —
 cada grupo con una etiqueta chica arriba y un subrayado del color del grupo)
-+ `NAV_END` (Proveedores, Programación, Márgenes, Precios, Asistente — no
-pertenecen a una sola fase, van sueltos al final). De paso se creó
++ `NAV_END` (Proveedores, Márgenes, Precios, Asistente — no pertenecen a una
+sola fase, van sueltos al final).
+- **Primera versión se veía informal** (el usuario mandó captura): el texto
+  se cortaba en dos líneas ("Lotes de / compra") porque a los links les
+  faltaba `whitespace-nowrap`, y la fila de "Inicio" no tenía la misma altura
+  que los grupos con etiqueta arriba, así que quedaba desalineada. Se rehizo
+  con `NavCluster`/`NavLinks`/`NavDivider`: cada bloque (con o sin grupo)
+  reserva la misma altura de "etiqueta" arriba (invisible si no tiene
+  nombre de grupo) para que todos los links terminen exactamente en la misma
+  línea de base, contenedor con scroll horizontal propio (con barra fina,
+  no la gris del navegador por defecto) para pantallas angostas en vez de
+  romper el texto.
+- **Nombre completo de la empresa**: "Ginebra" → "Ginebra Trade Peru SAC" en
+  el encabezado de la app (`(app)/layout.tsx`, ahora en dos líneas — nombre
+  arriba, "Sistema de trazabilidad de mineral" abajo, simétrico con el
+  bloque de usuario del otro extremo), en la pantalla de login, y en el
+  título de la pestaña del navegador (`src/app/layout.tsx`).
+- De paso se creó
 `/almacen`, pantalla que no existía: muestra los lotes con liquidación de
 compra ya definitiva que todavía no tienen traslado registrado ("listos
 para trasladar"), y los que ya están físicamente en Huanchaco (peso del

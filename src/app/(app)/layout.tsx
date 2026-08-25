@@ -2,17 +2,22 @@ import Link from "next/link";
 import { getCurrentUser, ROLE_LABELS } from "@/lib/auth";
 import { signOut } from "@/app/login/actions";
 
-const NAV_START = [{ href: "/", label: "Inicio" }];
+type NavLink = { href: string; label: string };
+type NavGroup = { label: string; accent: "amber" | "emerald" | "sky"; links: NavLink[] };
+
+const NAV_START: NavLink[] = [
+  { href: "/", label: "Inicio" },
+  { href: "/calendario", label: "Programación" },
+];
 
 // Los 3 procesos físicos del negocio, cada uno con su color para que se
 // distingan de un vistazo en el menú (pedido del usuario). El resto de las
 // pantallas (proveedores, programación, márgenes, precios, asistente) no
 // pertenece a una sola fase, así que van sueltas al final.
-const NAV_GROUPS = [
+const NAV_GROUPS: NavGroup[] = [
   {
     label: "Compra",
-    textClass: "text-amber-500",
-    borderClass: "border-amber-500",
+    accent: "amber",
     links: [
       { href: "/lotes", label: "Lotes de compra" },
       { href: "/precintos", label: "Precintos" },
@@ -21,14 +26,12 @@ const NAV_GROUPS = [
   },
   {
     label: "Almacén",
-    textClass: "text-emerald-500",
-    borderClass: "border-emerald-500",
+    accent: "emerald",
     links: [{ href: "/almacen", label: "Almacén" }],
   },
   {
     label: "Venta",
-    textClass: "text-sky-500",
-    borderClass: "border-sky-500",
+    accent: "sky",
     links: [
       { href: "/ventas", label: "Ventas a PY" },
       { href: "/muestreo", label: "Muestreo PY" },
@@ -36,13 +39,63 @@ const NAV_GROUPS = [
   },
 ];
 
-const NAV_END = [
+const NAV_END: NavLink[] = [
   { href: "/proveedores", label: "Proveedores" },
-  { href: "/calendario", label: "Programación" },
   { href: "/margenes", label: "Márgenes" },
   { href: "/precios", label: "Precios" },
   { href: "/asistente", label: "Asistente" },
 ];
+
+const ACCENT_TEXT: Record<NavGroup["accent"], string> = {
+  amber: "text-amber-400/90",
+  emerald: "text-emerald-400/90",
+  sky: "text-sky-400/90",
+};
+
+const ACCENT_BORDER: Record<NavGroup["accent"], string> = {
+  amber: "border-amber-500/80",
+  emerald: "border-emerald-500/80",
+  sky: "border-sky-500/80",
+};
+
+function NavLinks({ links }: { links: NavLink[] }) {
+  return (
+    <>
+      {links.map((l) => (
+        <Link
+          key={l.href}
+          href={l.href}
+          className="whitespace-nowrap rounded-md px-2 py-1.5 text-[13px] font-medium text-navy-200 transition-colors hover:bg-navy-800 hover:text-white"
+        >
+          {l.label}
+        </Link>
+      ))}
+    </>
+  );
+}
+
+function NavCluster({ label, accent, links }: { label?: string; accent?: NavGroup["accent"]; links: NavLink[] }) {
+  return (
+    <div className="flex flex-shrink-0 flex-col">
+      <span
+        className={`mb-1 h-3.5 px-2 text-[10px] font-semibold uppercase leading-none tracking-[0.08em] ${
+          accent ? ACCENT_TEXT[accent] : "invisible"
+        }`}
+      >
+        {label ?? "·"}
+      </span>
+      <div
+        className={`flex items-center gap-0.5 border-b-2 pb-2.5 ${accent ? ACCENT_BORDER[accent] : "border-transparent"}`}
+      >
+        <NavLinks links={links} />
+      </div>
+    </div>
+  );
+}
+
+function NavDivider() {
+  return <div className="mx-1 mb-2.5 h-4 w-px flex-shrink-0 self-end bg-navy-700" />;
+}
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, profile } = await getCurrentUser();
@@ -74,8 +127,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="bg-navy-900">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div>
-            <span className="text-lg font-semibold text-white">Ginebra</span>
-            <span className="ml-2 text-xs text-navy-300">Sistema de trazabilidad</span>
+            <div className="text-base font-semibold tracking-tight text-white">Ginebra Trade Peru SAC</div>
+            <div className="text-xs text-navy-400">Sistema de trazabilidad de mineral</div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
@@ -89,48 +142,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </form>
           </div>
         </div>
-        <nav className="mx-auto flex max-w-6xl items-end gap-3 px-6">
-          <div className="flex gap-1 pb-1">
-            {NAV_START.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="rounded-t-lg px-3 py-2 text-sm text-navy-200 hover:bg-navy-800 hover:text-gold-400"
-              >
-                {l.label}
-              </Link>
-            ))}
-          </div>
-
-          {NAV_GROUPS.map((group) => (
-            <div key={group.label} className="flex flex-col border-l border-navy-700 pl-3">
-              <span className={`px-3 text-[10px] font-semibold uppercase tracking-wider ${group.textClass}`}>
-                {group.label}
-              </span>
-              <div className={`flex gap-1 border-b-2 pb-1 ${group.borderClass}`}>
-                {group.links.map((l) => (
-                  <Link
-                    key={l.href}
-                    href={l.href}
-                    className="rounded-t-lg px-3 py-1.5 text-sm text-navy-200 hover:bg-navy-800 hover:text-gold-400"
-                  >
-                    {l.label}
-                  </Link>
-                ))}
+        <nav className="border-t border-navy-800/80">
+          <div className="mx-auto flex max-w-6xl items-end gap-1 overflow-x-auto px-6 pt-2.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-navy-700 [&::-webkit-scrollbar-track]:bg-transparent">
+            <NavCluster links={NAV_START} />
+            <NavDivider />
+            {NAV_GROUPS.map((group, i) => (
+              <div key={group.label} className="flex items-end gap-1">
+                <NavCluster label={group.label} accent={group.accent} links={group.links} />
+                {i < NAV_GROUPS.length - 1 && <NavDivider />}
               </div>
-            </div>
-          ))}
-
-          <div className="flex gap-1 border-l border-navy-700 pb-1 pl-3">
-            {NAV_END.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="rounded-t-lg px-3 py-2 text-sm text-navy-200 hover:bg-navy-800 hover:text-gold-400"
-              >
-                {l.label}
-              </Link>
             ))}
+            <NavDivider />
+            <NavCluster links={NAV_END} />
           </div>
         </nav>
       </header>
