@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getAvailablePurchaseLots } from "./available-bags";
+import { computeFixationWindow } from "@/lib/contract";
 
 export type SaleLotFormState = { error?: string } | null;
 
@@ -40,13 +41,22 @@ export async function createSaleLot(
   const supabase = await createClient();
 
   const available = await getAvailablePurchaseLots(supabase);
-  const availableById = new Map(available.map((a) => [a.purchaseLotId, a.available]));
+  const availableById = new Map(available.map((a) => [a.purchaseLotId, a]));
+  const batchIds = new Set<string>();
   for (const p of picks) {
-    const max = availableById.get(p.purchaseLotId) ?? 0;
-    if (p.qty > max) {
-      return { error: `Solo hay ${max} bolsones disponibles de ese lote de compra. Recargá la página.` };
+    const lot = availableById.get(p.purchaseLotId);
+    if (!lot || p.qty > lot.available) {
+      return { error: `Solo hay ${lot?.available ?? 0} bolsones disponibles de ese lote de compra. Recargá la página.` };
     }
+    batchIds.add(lot.sampleBatchId);
   }
+  if (batchIds.size > 1) {
+    return {
+      error:
+        "Esos lotes de compra vienen de muestreos provisionales distintos — no se pueden mezclar en un mismo despacho.",
+    };
+  }
+  const sampleBatchId = [...batchIds][0];
 
   const notes = String(formData.get("notes") ?? "").trim();
   const year = new Date().getFullYear();
@@ -62,7 +72,13 @@ export async function createSaleLot(
 
   const { data: saleLot, error: insertError } = await supabase
     .from("sale_lots")
-    .insert({ code, notes: notes || null, created_by: profile.id, updated_by: profile.id })
+    .insert({
+      code,
+      notes: notes || null,
+      sample_batch_id: sampleBatchId,
+      created_by: profile.id,
+      updated_by: profile.id,
+    })
     .select("id")
     .single();
 
@@ -107,9 +123,20 @@ export async function addAllocation(
   const supabase = await createClient();
 
   const available = await getAvailablePurchaseLots(supabase);
-  const max = available.find((a) => a.purchaseLotId === purchaseLotId)?.available ?? 0;
-  if (qty > max) {
-    return { error: `Solo hay ${max} bolsones disponibles de ese lote de compra.` };
+  const lot = available.find((a) => a.purchaseLotId === purchaseLotId);
+  if (!lot || qty > lot.available) {
+    return { error: `Solo hay ${lot?.available ?? 0} bolsones disponibles de ese lote de compra.` };
+  }
+
+  const { data: saleLot } = await supabase
+    .from("sale_lots")
+    .select("sample_batch_id")
+    .eq("id", saleLotId)
+    .maybeSingle();
+  if (saleLot?.sample_batch_id && saleLot.sample_batch_id !== lot.sampleBatchId) {
+    return {
+      error: "Ese lote de compra viene de un muestreo provisional distinto al de este despacho — no se puede mezclar.",
+    };
   }
 
   const { data: existing } = await supabase
@@ -346,20 +373,22 @@ export async function receiveSaleLotAtPY(
 
   const { data: saleLot } = await supabase
     .from("sale_lots")
-    .select("status")
+    .select("status, sample_batch_id")
     .eq("id", saleLotId)
     .maybeSingle();
   if (!saleLot || saleLot.status !== "despachado") {
     return { error: "Este lote todavía no fue despachado, o ya fue recibido." };
   }
 
-  const receivedAt = str(formData, "received_at_py");
+  const receivedAtIso = str(formData, "received_at_py")
+    ? new Date(str(formData, "received_at_py")).toISOString()
+    : new Date().toISOString();
 
   const { error } = await supabase
     .from("sale_lots")
     .update({
       status: "recibido_py",
-      received_at_py: receivedAt ? new Date(receivedAt).toISOString() : new Date().toISOString(),
+      received_at_py: receivedAtIso,
       py_warehouse: str(formData, "py_warehouse") || null,
       py_received_by: str(formData, "py_received_by") || null,
       py_official_weight_kg: officialWeight,
@@ -368,6 +397,24 @@ export async function receiveSaleLotAtPY(
     .eq("id", saleLotId);
 
   if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  // Cláusula 8.1: la ventana de fijación arranca desde la primera entrega
+  // en Lima del muestreo — se calcula una sola vez, con la primera
+  // recepción, no se recalcula si otro lote del mismo muestreo llega después.
+  if (saleLot.sample_batch_id) {
+    const { data: batch } = await supabase
+      .from("py_sample_batches")
+      .select("fixation_window_start")
+      .eq("id", saleLot.sample_batch_id)
+      .maybeSingle();
+    if (batch && !batch.fixation_window_start) {
+      const window = computeFixationWindow(new Date(receivedAtIso));
+      await supabase
+        .from("py_sample_batches")
+        .update({ fixation_window_start: window.start, fixation_window_end: window.end })
+        .eq("id", saleLot.sample_batch_id);
+    }
+  }
 
   revalidatePath(`/ventas/${saleLotId}`);
   return null;

@@ -11,17 +11,22 @@ const SYSTEM_INSTRUCTION = `Sos el asistente interno de Ginebra ERP, el sistema 
 de mineral (oro, plata, plomo) de la empresa Ginebra (Perú).
 
 Cómo funciona el negocio, en resumen:
-- Fase 1 (compra): se compra mineral a proveedores mineros, se transporta, se pesa, se recibe y muele en
-  planta, se generan bolsones (big bags, solo se cuenta CUÁNTOS, el peso individual de cada bolsón nunca
-  se conoce con exactitud), se analiza en laboratorio (ley real Au/Ag/Pb), y se liquida el pago definitivo
-  al proveedor (lot_settlements) restando costos y un margen objetivo del valor que pagaría PY.
-- Fase 2 (venta a PY): se arman lotes de venta indicando cuántos bolsones aporta cada lote de compra
-  (sale_lot_allocations — un lote de venta puede juntar bolsones de varios lotes de compra), se despachan
-  a Lima, se reciben en PY con un peso oficial de trailer (esa es la única referencia de peso confiable de
-  un lote de venta), y varios lotes de venta se agrupan en un solo "muestreo conjunto" (py_sample_batches)
-  porque ahí se mezclan físicamente. Ese muestreo tiene un ensaye provisional (rápido, paga el 90% del
-  valor estimado) y un ensaye final (laboratorio internacional conjunto), con precios de metal que se
-  "fijan" uno por uno dentro de una ventana de 30 días desde la entrega.
+- Fase 1 (compra): se compra mineral a proveedores mineros, se transporta, se pesa en Trujillo, se recibe y
+  muele en planta, se generan bolsones (big bags, solo se cuenta CUÁNTOS, el peso individual de cada bolsón
+  nunca se conoce con exactitud), se analiza en laboratorio (ley real Au/Ag/Pb), y se liquida el pago
+  definitivo al proveedor (lot_settlements) restando costos y un margen objetivo del valor que pagaría PY.
+  Después se traslada del molino al almacén de Ginebra en Huanchaco (montacarga, trailer, un pesaje propio
+  distinto al de Trujillo — warehouse_transfers + weighings tipo "huanchaco").
+- Muestreo (py_sample_batches) — **importante, dos etapas en momentos distintos**:
+  1. Provisional: en Huanchaco, ANTES de despachar a Lima. Se agrupan lotes de COMPRA que ya llegaron al
+     almacén (todo lo que está esperando embarque a la vez), se toma una sola muestra de todo, y con ese
+     resultado se calcula la liquidación provisional (paga el 90% del valor estimado).
+  2. Final: recién después se arman lotes de VENTA (indicando cuántos bolsones aporta cada lote de compra
+     del mismo muestreo — sale_lot_allocations, no se puede mezclar lotes de compra de muestreos
+     provisionales distintos en un mismo despacho), se despachan a Lima, se reciben con un peso oficial de
+     trailer (única referencia de peso confiable de un lote de venta), y esos lotes de venta se van sumando
+     al MISMO muestreo para el ensaye final (laboratorio internacional conjunto) y la liquidación final, con
+     precios de metal que se "fijan" uno por uno dentro de una ventana de 30 días desde la entrega.
 - Márgenes: se cruza lo pagado al proveedor contra lo cobrado a PY, prorrateado por CANTIDAD DE BOLSONES
   (no por peso, porque no se conoce el peso individual) — un lote de compra puede terminar repartido en
   varios lotes de venta, y viceversa.

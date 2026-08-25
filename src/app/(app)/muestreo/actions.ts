@@ -23,22 +23,6 @@ function num(formData: FormData, key: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// Cláusula 8.1: la ventana de fijación son los 30 días calendario a partir
-// del lunes de la semana siguiente a la entrega ("M+1").
-function computeFixationWindow(deliveryDate: Date): { start: string; end: string } {
-  const d = new Date(deliveryDate);
-  const day = d.getUTCDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  d.setUTCDate(d.getUTCDate() + diffToMonday); // lunes de la semana de entrega
-  d.setUTCHours(0, 0, 0, 0);
-  d.setUTCDate(d.getUTCDate() + 7); // M+1: lunes de la semana siguiente
-  const start = new Date(d);
-  const end = new Date(d);
-  end.setUTCDate(end.getUTCDate() + 30);
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
-}
-
-
 export async function createSampleBatch() {
   const { profile } = await getCurrentUser();
   if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
@@ -47,14 +31,21 @@ export async function createSampleBatch() {
 
   const supabase = await createClient();
 
+  // Listos para el muestreo provisional: ya tienen pesaje en Huanchaco
+  // (llegaron al almacén) y todavía no entraron a ningún muestreo.
+  const { data: huanchacoWeighings } = await supabase
+    .from("weighings")
+    .select("purchase_lot_id")
+    .eq("type", "huanchaco");
+
   const { data: pending } = await supabase
-    .from("sale_lots")
-    .select("id, received_at_py")
-    .eq("status", "recibido_py")
-    .is("sample_batch_id", null);
+    .from("purchase_lots")
+    .select("id")
+    .is("sample_batch_id", null)
+    .in("id", (huanchacoWeighings ?? []).map((w) => w.purchase_lot_id));
 
   if (!pending || pending.length === 0) {
-    return { error: "No hay lotes de venta recibidos en PY esperando muestreo." };
+    return { error: "No hay lotes de compra que hayan llegado a Huanchaco esperando muestreo." };
   }
 
   const year = new Date().getFullYear();
@@ -67,21 +58,9 @@ export async function createSampleBatch() {
   }
   const code = `MUE-${String(year).slice(-2)}-${String(seq).padStart(2, "0")}`;
 
-  const deliveryDates = pending.map((p) => p.received_at_py).filter((d): d is string => !!d);
-  const earliestDelivery =
-    deliveryDates.length > 0
-      ? new Date(Math.min(...deliveryDates.map((d) => new Date(d).getTime())))
-      : new Date();
-  const window = computeFixationWindow(earliestDelivery);
-
   const { data: batch, error: insertError } = await supabase
     .from("py_sample_batches")
-    .insert({
-      code,
-      fixation_window_start: window.start,
-      fixation_window_end: window.end,
-      created_by: profile.id,
-    })
+    .insert({ code, created_by: profile.id })
     .select("id")
     .single();
 
@@ -90,8 +69,8 @@ export async function createSampleBatch() {
   }
 
   const { error: updateError } = await supabase
-    .from("sale_lots")
-    .update({ sample_batch_id: batch.id, status: "muestreado", updated_by: profile.id })
+    .from("purchase_lots")
+    .update({ sample_batch_id: batch.id })
     .in(
       "id",
       pending.map((p) => p.id),
@@ -124,15 +103,20 @@ export async function undoSampleBatch(batchId: string) {
     return { error: "No se puede deshacer: ya tiene resultado de laboratorio cargado." };
   }
 
-  await supabase
+  const { count: saleLotCount } = await supabase
     .from("sale_lots")
-    .update({ sample_batch_id: null, status: "recibido_py", updated_by: profile.id })
+    .select("id", { count: "exact", head: true })
     .eq("sample_batch_id", batchId);
+  if (saleLotCount && saleLotCount > 0) {
+    return { error: "No se puede deshacer: ya se armaron lotes de venta a partir de este muestreo." };
+  }
+
+  await supabase.from("purchase_lots").update({ sample_batch_id: null }).eq("sample_batch_id", batchId);
 
   const { error } = await supabase.from("py_sample_batches").delete().eq("id", batchId);
   if (error) return { error: `No se pudo eliminar: ${error.message}` };
 
-  revalidatePath("/ventas");
+  revalidatePath("/lotes");
   redirect("/muestreo");
 }
 
@@ -239,13 +223,18 @@ export async function saveProvisionalLiquidation(
     return { error: "Falta el ensaye provisional (Au/Ag/Pb) para poder calcular." };
   }
 
-  const { data: saleLots } = await supabase
-    .from("sale_lots")
-    .select("id, py_official_weight_kg")
-    .eq("sample_batch_id", batchId);
+  const { data: lots } = await supabase.from("purchase_lots").select("id").eq("sample_batch_id", batchId);
+  const lotIds = (lots ?? []).map((l) => l.id);
+  const { data: huanchacoWeighings } = lotIds.length
+    ? await supabase
+        .from("weighings")
+        .select("purchase_lot_id, net_weight")
+        .eq("type", "huanchaco")
+        .in("purchase_lot_id", lotIds)
+    : { data: [] };
 
-  const totalKg = (saleLots ?? []).reduce((sum, l) => sum + (l.py_official_weight_kg ?? 0), 0);
-  if (totalKg <= 0) return { error: "No se pudo calcular el peso total del muestreo (peso oficial en PY)." };
+  const totalKg = (huanchacoWeighings ?? []).reduce((sum, w) => sum + (w.net_weight ?? 0), 0);
+  if (totalKg <= 0) return { error: "No se pudo calcular el peso total del muestreo (pesaje de Huanchaco)." };
   const tmh = totalKg / 1000;
 
   const prices = await fiveDayAveragePrices(supabase, invoiceDate);

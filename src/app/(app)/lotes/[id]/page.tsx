@@ -15,6 +15,10 @@ import { LabAnalysisRow } from "./LabAnalysisRow";
 import { SettlementForm } from "./SettlementForm";
 import { SettlementRow } from "./SettlementRow";
 import { WarehousePhotoForm } from "./WarehousePhotoForm";
+import { WarehouseTransferForm } from "./WarehouseTransferForm";
+import { WarehouseTransferRow } from "./WarehouseTransferRow";
+import { HuanchacoWeighingForm } from "./HuanchacoWeighingForm";
+import { HuanchacoWeighingRow } from "./HuanchacoWeighingRow";
 import { DeleteRowButton } from "@/components/DeleteRowButton";
 import { ActionButton } from "@/components/ActionButton";
 import { deleteWarehousePhoto, markSettlementPaid, closeLot } from "./actions";
@@ -104,6 +108,15 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         .eq("doc_type", "foto_almacen")
         .order("uploaded_at", { ascending: false }),
     ]);
+
+  const { data: transfers } = await supabase
+    .from("warehouse_transfers")
+    .select("id, forklift_cost_pen, dispatch_carrier, dispatch_truck_plate, departed_at, arrived_at, incidents")
+    .eq("purchase_lot_id", id)
+    .order("created_at", { ascending: false });
+
+  const trujilloWeighings = (weighings ?? []).filter((w) => w.type !== "huanchaco");
+  const huanchacoWeighing = weighings?.find((w) => w.type === "huanchaco");
 
   const inicial = weighings?.find((w) => w.type === "inicial");
   const oficial = weighings?.find((w) => w.type === "oficial");
@@ -262,10 +275,10 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         <TransportForm lotId={lot.id} defaultCarrier={lot.carrier_name ?? undefined} />
       </Section>
 
-      <Section title="Pesajes">
-        {weighings && weighings.length > 0 && (
+      <Section title="Pesajes (balanza Trujillo)">
+        {trujilloWeighings.length > 0 && (
           <div className="mb-4 space-y-2">
-            {weighings.map((w) => (
+            {trujilloWeighings.map((w) => (
               <WeighingRow
                 key={w.id}
                 lotId={lot.id}
@@ -359,7 +372,29 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         )}
       </Section>
 
-      <Section title="Traslado a almacén">
+      <Section title="Traslado a almacén (Huanchaco)">
+        <p className="mb-3 text-xs text-slate-500">
+          Del molino al almacén de Huanchaco: montacarga, trailer, pesaje propio (distinto al de Trujillo) y
+          descarga.
+        </p>
+        {transfers && transfers.length > 0 && (
+          <div className="mb-3 space-y-2">
+            {transfers.map((t) => (
+              <WarehouseTransferRow key={t.id} lotId={lot.id} transfer={t} />
+            ))}
+          </div>
+        )}
+        <WarehouseTransferForm lotId={lot.id} />
+
+        <div className="mt-4">
+          {huanchacoWeighing ? (
+            <HuanchacoWeighingRow lotId={lot.id} weighing={huanchacoWeighing} />
+          ) : (
+            <HuanchacoWeighingForm lotId={lot.id} />
+          )}
+        </div>
+
+        <h3 className="mb-2 mt-6 text-xs font-medium text-slate-500">Foto de evidencia</h3>
         {photos.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-3">
             {photos.map((p) => (

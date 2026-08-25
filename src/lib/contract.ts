@@ -1,5 +1,20 @@
 const OZ_PER_TM = 31.1034768;
 
+// Cláusula 8.1: la ventana de fijación son los 30 días calendario a partir
+// del lunes de la semana siguiente a la entrega ("M+1").
+export function computeFixationWindow(deliveryDate: Date): { start: string; end: string } {
+  const d = new Date(deliveryDate);
+  const day = d.getUTCDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diffToMonday); // lunes de la semana de entrega
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + 7); // M+1: lunes de la semana siguiente
+  const start = new Date(d);
+  const end = new Date(d);
+  end.setUTCDate(end.getUTCDate() + 30);
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
+
 export type ContractSettings = {
   tipo_cambio: number;
   merma_pct: number;

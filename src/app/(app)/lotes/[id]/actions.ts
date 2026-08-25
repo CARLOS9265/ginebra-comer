@@ -135,7 +135,7 @@ export async function createWeighing(
   }
 
   const type = str(formData, "type");
-  if (!["inicial", "oficial", "regularizacion"].includes(type)) {
+  if (!["inicial", "oficial", "regularizacion", "huanchaco"].includes(type)) {
     return { error: "Elegí un tipo de pesaje válido." };
   }
 
@@ -174,7 +174,7 @@ export async function updateWeighing(
   }
 
   const type = str(formData, "type");
-  if (!["inicial", "oficial", "regularizacion"].includes(type)) {
+  if (!["inicial", "oficial", "regularizacion", "huanchaco"].includes(type)) {
     return { error: "Elegí un tipo de pesaje válido." };
   }
 
@@ -607,6 +607,77 @@ export async function deleteSettlement(lotId: string, settlementId: string) {
   revalidatePath(`/lotes/${lotId}`);
 }
 
+export async function createWarehouseTransfer(
+  lotId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede registrar el traslado a almacén." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("warehouse_transfers").insert({
+    purchase_lot_id: lotId,
+    forklift_cost_pen: num(formData, "forklift_cost_pen"),
+    dispatch_carrier: str(formData, "dispatch_carrier") || null,
+    dispatch_truck_plate: str(formData, "dispatch_truck_plate") || null,
+    departed_at: str(formData, "departed_at") ? new Date(str(formData, "departed_at")).toISOString() : null,
+    arrived_at: str(formData, "arrived_at") ? new Date(str(formData, "arrived_at")).toISOString() : null,
+    incidents: str(formData, "incidents") || null,
+    created_by: profile.id,
+  });
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  await advanceLotStatus(supabase, lotId, "en_almacen", profile.id);
+
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function updateWarehouseTransfer(
+  lotId: string,
+  transferId: string,
+  _prevState: LogisticsFormState,
+  formData: FormData,
+): Promise<LogisticsFormState> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede editar este registro." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("warehouse_transfers")
+    .update({
+      forklift_cost_pen: num(formData, "forklift_cost_pen"),
+      dispatch_carrier: str(formData, "dispatch_carrier") || null,
+      dispatch_truck_plate: str(formData, "dispatch_truck_plate") || null,
+      departed_at: str(formData, "departed_at") ? new Date(str(formData, "departed_at")).toISOString() : null,
+      arrived_at: str(formData, "arrived_at") ? new Date(str(formData, "arrived_at")).toISOString() : null,
+      incidents: str(formData, "incidents") || null,
+    })
+    .eq("id", transferId);
+
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+  revalidatePath(`/lotes/${lotId}`);
+  return null;
+}
+
+export async function deleteWarehouseTransfer(lotId: string, transferId: string) {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede eliminar este registro." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("warehouse_transfers").delete().eq("id", transferId);
+  if (error) return { error: `No se pudo eliminar: ${error.message}` };
+  revalidatePath(`/lotes/${lotId}`);
+}
+
 export async function uploadWarehousePhoto(
   lotId: string,
   _prevState: LogisticsFormState,
@@ -638,8 +709,6 @@ export async function uploadWarehousePhoto(
     uploaded_by: profile.id,
   });
   if (docError) return { error: `No se pudo guardar el registro: ${docError.message}` };
-
-  await advanceLotStatus(supabase, lotId, "en_almacen", profile.id);
 
   revalidatePath(`/lotes/${lotId}`);
   return null;

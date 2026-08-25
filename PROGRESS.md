@@ -184,22 +184,63 @@ completo. Hecho hasta ahora:
   trailer** (por lote de venta / camión) — desde la migración 0017 este es
   **obligatorio** y es la única referencia de peso confiable de un lote de
   venta (ya no hay peso "declarado" por bolsón contra el cual compararlo).
-- **Muestreo conjunto en PY** (`/muestreo`) — el usuario explicó el proceso
-  real: al llegar a Lima se pesan los trailers, se rompen los big bags en
-  una plataforma y se **mezclan** — varios lotes de venta se convierten en
-  uno solo para el muestreo. Por eso la agrupación es **automática, no
-  manual**: "Crear muestreo" junta TODOS los lotes de venta en estado
-  `recibido_py` que todavía no fueron muestreados (confirmado con el
-  usuario — así es como funciona en la realidad, no hay selección de a
-  uno). El resultado de laboratorio usa los mismos elementos que ya se
-  cargan del lado de compra (Au/Ag/Pb + As/Sb/S/humedad). Tabla nueva:
-  `py_sample_batches` (migración 0015), código `MUE-AA-NN`. El peso total
-  del muestreo (para tmh de la liquidación) se calcula sumando
-  `py_official_weight_kg` de los lotes de venta agrupados — desde la
-  migración 0017, ya no suma peso de bolsones. Se puede deshacer el
-  muestreo (libera los lotes de venta) **solo mientras no tenga resultado
-  de laboratorio cargado** — después de eso es un
-  registro de laboratorio real, no se borra.
+- **Traslado a almacén de Huanchaco** (`/lotes/[id]`, sección nueva en la
+  migración 0018) — el usuario corrigió el proceso real (ver más abajo, "el
+  muestreo pasó a ser en dos tiempos"): entre el molino y la venta hay un
+  traslado propio al almacén de Ginebra en Huanchaco, con montacarga,
+  trailer y **un pesaje propio distinto al de Trujillo** (mismo enum
+  `weighing_type`, valor nuevo `'huanchaco'`). Tabla nueva
+  `warehouse_transfers` (costo de montacarga, transportista, placa, salida
+  del molino, descarga en almacén, incidentes) + `WarehouseTransferForm/Row`
+  y `HuanchacoWeighingForm/Row` (este último reusa `createWeighing`/
+  `updateWeighing`, solo agrega un campo oculto `type="huanchaco"`). La
+  foto que antes vivía acá (única evidencia del traslado) ahora es
+  complementaria — lo que hace avanzar `purchase_lots.status` a
+  `en_almacen` es `createWarehouseTransfer`, no la foto.
+- **Muestreo conjunto en PY, en dos tiempos** (`/muestreo`) — el usuario
+  explicó el proceso real completo (compra → traslado a Huanchaco → venta) y
+  reveló que el muestreo/liquidación provisional (90%) **no pasa en Lima
+  como se había armado antes** — pasa **en Huanchaco, antes de despachar**:
+  llega el supervisor de PY al almacén de Ginebra, se toma **una sola
+  muestra de TODO lo que está esperando embarque** (todos los lotes de
+  compra en almacén a la vez, sin importar a qué lote de venta van a
+  terminar), y con ese resultado se calcula y paga el 90% provisional.
+  **Recién después** se arman los lotes de venta (eligiendo cuántos
+  bolsones aporta cada lote de compra de *ese mismo* muestreo — no se puede
+  mezclar lotes de compra de muestreos provisionales distintos en un mismo
+  despacho, se valida en `createSaleLot`/`addAllocation`), se despachan a
+  Lima, y ahí pasa el muestreo **final** (conjunto, laboratorio
+  internacional) — que sigue siendo el mismo que ya estaba construido.
+  - Es la **misma entidad `py_sample_batches`** para las dos etapas, no una
+    tabla nueva: primero agrupa lotes de **compra** (`purchase_lots.
+    sample_batch_id`, columna nueva en la migración 0018) para lo
+    provisional, después los lotes de **venta** creados a partir de esos
+    lotes de compra heredan el mismo `sample_batch_id` automáticamente para
+    lo final. Se evitó a propósito un diseño con dos tablas (provisional y
+    final separadas) porque hubiera necesitado prorratear "cuánto ya se
+    pagó de provisional" entre lotes de venta por cantidad de bolsones —
+    siendo el mismo registro, `batch.prov_payment_total` ya es el número
+    correcto sin ningún cálculo extra.
+  - "Crear muestreo" en `/muestreo` junta automáticamente TODOS los lotes de
+    compra con pesaje de Huanchaco cargado que todavía no fueron agrupados
+    (mismo criterio "automático, no manual" que ya regía del lado de venta).
+  - El peso total del muestreo (provisional) suma los pesajes tipo
+    `huanchaco` de los lotes de compra agrupados — ya no el peso oficial de
+    trailer de los lotes de venta, porque a esa altura los lotes de venta
+    todavía no existen.
+  - La **ventana de fijación** ("M+1", cláusula 8.1) ya no se puede calcular
+    al crear el muestreo (en Huanchaco todavía no se sabe cuándo va a llegar
+    el primer trailer a Lima) — se calcula **sola, en el momento**, la
+    primera vez que se registra una recepción en PY de un lote de venta de
+    ese muestreo (`computeFixationWindow`, movida a `src/lib/contract.ts`
+    para poder importarla desde `ventas/actions.ts`).
+  - Se puede deshacer el muestreo provisional (libera los lotes de compra)
+    **solo mientras no tenga resultado de laboratorio cargado**, y
+    **solo si todavía no se armó ningún lote de venta** desde él.
+  - Página de detalle (`/muestreo/[id]`) ahora muestra dos listas separadas:
+    lotes de compra del muestreo (provisional, Huanchaco) y lotes de venta
+    despachados desde él (final, Lima) — la segunda puede estar vacía si
+    todavía no se armó ningún despacho.
 
 **El contrato real con PY** (`PYCP-202656 - XXXXX - AG ORES _Vs 30.06.26 (1).docx`,
 en la carpeta del proyecto, **no está en git a propósito** — es un documento
@@ -278,7 +319,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0017`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0018`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
@@ -350,6 +391,28 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
   **ahora obligatorio** al recibir en PY) o cantidad de bolsones, según
   corresponda. Ver el detalle de cada pantalla más arriba.
 
+- `0018_huanchaco_and_provisional_reorder.sql` — **corrección de arquitectura,
+  no solo una tabla nueva**: el usuario describió el proceso físico real
+  completo (compra → traslado a Huanchaco → venta) y reveló que el muestreo/
+  liquidación provisional del lado de PY se había construido en el momento
+  equivocado (agrupando lotes de venta ya en Lima, en vez de lotes de compra
+  en Huanchaco antes de despachar — ver "Muestreo conjunto en PY, en dos
+  tiempos" más arriba para el detalle completo). Trae: tabla nueva
+  `warehouse_transfers`, valor nuevo `'huanchaco'` en el enum
+  `weighing_type`, y columna nueva `purchase_lots.sample_batch_id` (para que
+  el muestreo provisional agrupe lotes de compra, no de venta). Confirmado
+  con el usuario dos veces por `AskUserQuestion` antes de tocar código (una
+  vez que la muestra provisional es una sola de todo lo que espera en
+  Huanchaco, y otra vez la secuencia completa) — no es una interpretación
+  mía, es exactamente lo que describió.
+  - **Bug real encontrado al probar**: `createWeighing`/`updateWeighing` en
+    `lotes/[id]/actions.ts` tenían una lista blanca de tipos de pesaje
+    (`["inicial", "oficial", "regularizacion"]`) que nunca se actualizó
+    después de agregar `'huanchaco'` al enum de la base — el formulario de
+    pesaje de Huanchaco fallaba con "Elegí un tipo de pesaje válido." en
+    cada intento. Corregido agregando `"huanchaco"` a esa lista en ambas
+    funciones.
+
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de
 ChatGPT. **Ya está conectada** — se usa en `/lotes/[id]` para la valorización
@@ -386,8 +449,10 @@ menos el margen objetivo" (confirmado con el usuario).
    pedido del usuario, no se usaba en ningún cálculo) — hoy el pago
    provisional se asume 100% de una vez, no por partes.
 9. ~~Traslado al almacén de Ginebra + cierre de compra~~ — **hecho**
-   (`/lotes/[id]`, ver arriba). Traslado es solo foto de evidencia; cierre
-   solo se habilita si la liquidación está pagada.
+   (`/lotes/[id]`, ver arriba). Desde la migración 0018 el traslado tiene
+   registro real (montacarga, trailer, pesaje propio de Huanchaco, no solo
+   foto de evidencia — ver "Traslado a almacén de Huanchaco" más arriba);
+   cierre solo se habilita si la liquidación está pagada.
 
 **Fase 1 (compra) completa — los 9 puntos del pedido original están
 implementados y probados de punta a punta.** Lo que sigue es Fase 2 (venta a
@@ -490,15 +555,17 @@ de edición ya armadas, este sería el momento natural para conectarla (cada
 
 ## Datos de prueba en la base
 
-Se limpiaron los datos de prueba viejos a pedido del usuario (se mantuvieron los
-2 proveedores: BUSINESS DIRECTION / BUS, GRUPO CONSTRUCTOR Y MULTISERVICIOS /
-GRU). Quedó una **simulación completa de punta a punta** hecha en esta sesión,
-dejada a propósito como referencia funcionando: `BUS-26-01` (compra completa,
-cerrada) → `VTA-26-01` (23 bolsones, despachado y recibido en PY) →
-`MUE-26-01` (muestreo, liquidación provisional y final, ambas pagadas).
-Margen verificado en `/margenes`: $74,034 − $59,030 = **$15,004**, y el
-asistente de IA lo confirma correctamente al preguntarle. Se puede borrar
-cuando el usuario quiera arrancar 100% limpio, o dejarla como ejemplo.
+Base limpia: se mantuvieron los 2 proveedores (BUSINESS DIRECTION / BUS,
+GRUPO CONSTRUCTOR Y MULTISERVICIOS / GRU) pero no hay ningún lote de compra
+ni de venta cargado. La migración 0018 (traslado a Huanchaco + muestreo
+provisional en dos tiempos) se probó de punta a punta con una simulación
+completa (`BUS-26-01` → traslado a Huanchaco con pesaje propio → `MUE-26-01`
+provisional (90%, pagado) → `VTA-26-01` (23 bolsones, despachado, recibido en
+PY, ventana de fijación auto-calculada en la primera recepción) → ensaye y
+liquidación final de `MUE-26-01` (pagada) → margen verificado en `/margenes`:
+$74,387 − $58,293 = **$16,094**) y se borró después de confirmar que todo
+cerraba bien — no quedó como ejemplo esta vez, a diferencia de simulaciones
+anteriores.
 
 ## Notas de estilo de trabajo con el usuario
 

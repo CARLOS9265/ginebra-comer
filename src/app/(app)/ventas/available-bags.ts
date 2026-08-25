@@ -2,18 +2,27 @@ import type { createClient } from "@/lib/supabase/server";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
-export type AvailableLot = { purchaseLotId: string; code: string; providerName: string | null; available: number };
+export type AvailableLot = {
+  purchaseLotId: string;
+  code: string;
+  providerName: string | null;
+  available: number;
+  sampleBatchId: string;
+};
 
 /**
  * Lotes de compra con bolsones todavía sin asignar a ningún lote de venta
  * (cantidad generada en la conminución menos lo ya repartido en
- * sale_lot_allocations).
+ * sale_lot_allocations). Solo se ofrecen lotes que YA pasaron por el
+ * muestreo provisional en Huanchaco (`sample_batch_id` asignado) — el
+ * despacho a Lima pasa después de esa muestra, no antes (confirmado con
+ * el usuario).
  */
 export async function getAvailablePurchaseLots(supabase: SupabaseClient): Promise<AvailableLot[]> {
   const [{ data: comminutions }, { data: allocations }, { data: lots }] = await Promise.all([
     supabase.from("comminutions").select("purchase_lot_id, bag_count").not("bag_count", "is", null),
     supabase.from("sale_lot_allocations").select("purchase_lot_id, bag_count"),
-    supabase.from("purchase_lots").select("id, code, providers(name)"),
+    supabase.from("purchase_lots").select("id, code, sample_batch_id, providers(name)").not("sample_batch_id", "is", null),
   ]);
 
   const totalByLot = new Map<string, number>();
@@ -28,12 +37,18 @@ export async function getAvailablePurchaseLots(supabase: SupabaseClient): Promis
 
   const rows: AvailableLot[] = [];
   for (const [lotId, total] of totalByLot) {
+    const lot = lotById.get(lotId);
+    if (!lot || !lot.sample_batch_id) continue;
     const available = total - (allocatedByLot.get(lotId) ?? 0);
     if (available <= 0) continue;
-    const lot = lotById.get(lotId);
-    if (!lot) continue;
     const provider = Array.isArray(lot.providers) ? lot.providers[0] : lot.providers;
-    rows.push({ purchaseLotId: lotId, code: lot.code, providerName: provider?.name ?? null, available });
+    rows.push({
+      purchaseLotId: lotId,
+      code: lot.code,
+      providerName: provider?.name ?? null,
+      available,
+      sampleBatchId: lot.sample_batch_id,
+    });
   }
   return rows.sort((a, b) => a.code.localeCompare(b.code));
 }

@@ -8,53 +8,61 @@ const fmtKg = (n: number) => `${n.toLocaleString("es-PE")} kg`;
 export default async function SampleBatchesPage() {
   const supabase = await createClient();
 
-  const [{ data: batches }, { data: pendingLots }] = await Promise.all([
+  const [{ data: batches }, { data: huanchacoWeighings }] = await Promise.all([
     supabase
       .from("py_sample_batches")
       .select(
-        "id, code, created_at, prov_au_gt, final_value_total, sale_lots(id, py_official_weight_kg)",
+        "id, code, created_at, prov_au_gt, prov_value_total, final_value_total, purchase_lots(id, code), sale_lots(id)",
       )
       .order("created_at", { ascending: false }),
     supabase
-      .from("sale_lots")
-      .select("id, code, py_official_weight_kg")
-      .eq("status", "recibido_py")
-      .is("sample_batch_id", null)
-      .order("code"),
+      .from("weighings")
+      .select("purchase_lot_id, net_weight, purchase_lots(id, code, sample_batch_id)")
+      .eq("type", "huanchaco"),
   ]);
 
-  const pendingTotalKg = (pendingLots ?? []).reduce((sum, l) => sum + (l.py_official_weight_kg ?? 0), 0);
+  const pendingLots = (huanchacoWeighings ?? [])
+    .map((w) => ({
+      weight: w.net_weight,
+      lot: Array.isArray(w.purchase_lots) ? w.purchase_lots[0] : w.purchase_lots,
+    }))
+    .filter((w) => w.lot && w.lot.sample_batch_id == null);
+
+  const pendingTotalKg = pendingLots.reduce((sum, w) => sum + (w.weight ?? 0), 0);
 
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-slate-900">Muestreo conjunto en PY</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Muestreo</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Al llegar, se pesan los trailers, se rompen los big bags en una plataforma y se mezclan — varios
-          lotes de venta se convierten en uno solo para el muestreo.
+          El muestreo <strong>provisional</strong> se toma en Huanchaco, de todo lo que está esperando
+          embarque a la vez — recién después se arman los lotes de venta y se despachan a Lima, donde pasa
+          el muestreo <strong>final</strong> (conjunto, laboratorio internacional).
         </p>
       </div>
 
       <div className="mb-8 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-slate-800">Lotes esperando muestreo</h2>
-        {!pendingLots || pendingLots.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-500">No hay lotes de venta recibidos en PY sin muestrear.</p>
+        <h2 className="text-sm font-semibold text-slate-800">Lotes de compra esperando muestreo provisional</h2>
+        {pendingLots.length === 0 ? (
+          <p className="mt-2 text-sm text-slate-500">
+            No hay lotes de compra que hayan llegado a Huanchaco sin muestrear.
+          </p>
         ) : (
           <>
             <div className="mt-3 flex flex-wrap gap-2">
-              {pendingLots.map((l) => (
+              {pendingLots.map((w) => (
                 <Link
-                  key={l.id}
-                  href={`/ventas/${l.id}`}
+                  key={w.lot!.id}
+                  href={`/lotes/${w.lot!.id}`}
                   className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-mono text-slate-700 hover:bg-slate-200"
                 >
-                  {l.code}
+                  {w.lot!.code}
                 </Link>
               ))}
             </div>
             <p className="mt-3 text-xs text-slate-500">
               {pendingLots.length} lote{pendingLots.length === 1 ? "" : "s"} · {fmtKg(pendingTotalKg)} en total
-              (peso oficial en PY)
+              (pesaje de Huanchaco)
             </p>
             <div className="mt-4">
               <ActionButton
@@ -79,15 +87,22 @@ export default async function SampleBatchesPage() {
               <tr>
                 <th className="px-4 py-3">Código</th>
                 <th className="px-4 py-3">Creado</th>
+                <th className="px-4 py-3 text-right">Lotes de compra</th>
                 <th className="px-4 py-3 text-right">Lotes de venta</th>
-                <th className="px-4 py-3 text-right">Peso total</th>
-                <th className="px-4 py-3">Laboratorio</th>
+                <th className="px-4 py-3">Estado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {batches.map((batch) => {
-                const lots = Array.isArray(batch.sale_lots) ? batch.sale_lots : [];
-                const totalKg = lots.reduce((sum, l) => sum + (l.py_official_weight_kg ?? 0), 0);
+                const purchaseLots = Array.isArray(batch.purchase_lots) ? batch.purchase_lots : [];
+                const saleLots = Array.isArray(batch.sale_lots) ? batch.sale_lots : [];
+                const status = batch.final_value_total != null
+                  ? "Liquidado (final)"
+                  : batch.prov_value_total != null
+                    ? "Liquidado (provisional)"
+                    : batch.prov_au_gt != null
+                      ? "Con ensaye provisional"
+                      : "Pendiente";
                 return (
                   <tr key={batch.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-mono text-slate-700">
@@ -98,15 +113,11 @@ export default async function SampleBatchesPage() {
                     <td className="px-4 py-3 text-slate-500">
                       {new Date(batch.created_at).toLocaleDateString("es-PE")}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-slate-400">{lots.length}</td>
-                    <td className="px-4 py-3 text-right font-mono text-slate-400">{fmtKg(totalKg)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-400">{purchaseLots.length}</td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-400">{saleLots.length}</td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-400">
-                        {batch.final_value_total != null
-                          ? "Liquidado"
-                          : batch.prov_au_gt != null
-                            ? "Con ensaye provisional"
-                            : "Pendiente"}
+                        {status}
                       </span>
                     </td>
                   </tr>

@@ -24,13 +24,28 @@ export default async function SampleBatchDetailPage({ params }: { params: Promis
 
   if (!batch) notFound();
 
-  const { data: saleLots } = await supabase
-    .from("sale_lots")
-    .select("id, code, py_official_weight_kg")
-    .eq("sample_batch_id", id)
-    .order("code");
+  const [{ data: purchaseLots }, { data: saleLots }] = await Promise.all([
+    supabase.from("purchase_lots").select("id, code").eq("sample_batch_id", id).order("code"),
+    supabase
+      .from("sale_lots")
+      .select("id, code, py_official_weight_kg")
+      .eq("sample_batch_id", id)
+      .order("code"),
+  ]);
 
-  const totalKg = (saleLots ?? []).reduce((sum, l) => sum + (l.py_official_weight_kg ?? 0), 0);
+  const { data: huanchacoWeighings } = purchaseLots?.length
+    ? await supabase
+        .from("weighings")
+        .select("net_weight")
+        .eq("type", "huanchaco")
+        .in(
+          "purchase_lot_id",
+          purchaseLots.map((l) => l.id),
+        )
+    : { data: [] };
+
+  const provisionalTotalKg = (huanchacoWeighings ?? []).reduce((sum, w) => sum + (w.net_weight ?? 0), 0);
+  const limaTotalKg = (saleLots ?? []).reduce((sum, l) => sum + (l.py_official_weight_kg ?? 0), 0);
 
   const hasProvAssay = batch.prov_au_gt != null;
   const hasProvLiquidation = batch.prov_value_total != null;
@@ -43,14 +58,14 @@ export default async function SampleBatchDetailPage({ params }: { params: Promis
     <div className="space-y-8">
       <div>
         <Link href="/muestreo" className="text-xs text-slate-500 hover:text-slate-900">
-          ← Muestreo conjunto
+          ← Muestreo
         </Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">{batch.code}</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Creado el {new Date(batch.created_at).toLocaleDateString("es-PE")} · {saleLots?.length ?? 0} lotes
-              de venta · {fmtKg(totalKg)} (peso oficial en PY)
+              Creado el {new Date(batch.created_at).toLocaleDateString("es-PE")} · {purchaseLots?.length ?? 0}{" "}
+              lotes de compra · {fmtKg(provisionalTotalKg)} (pesaje de Huanchaco)
             </p>
           </div>
           {!hasProvAssay && (
@@ -59,7 +74,7 @@ export default async function SampleBatchDetailPage({ params }: { params: Promis
               label="Deshacer muestreo"
               pendingLabel="Deshaciendo..."
               variant="danger"
-              confirmText="¿Deshacer este muestreo? Los lotes de venta vuelven a 'recibido_py' sin agrupar."
+              confirmText="¿Deshacer este muestreo? Los lotes de compra quedan libres para agruparse en otro."
             />
           )}
         </div>
@@ -67,22 +82,49 @@ export default async function SampleBatchDetailPage({ params }: { params: Promis
 
       <div>
         <h2 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Lotes de venta mezclados
+          Lotes de compra en este muestreo (provisional, Huanchaco)
         </h2>
-        {!saleLots || saleLots.length === 0 ? (
+        {!purchaseLots || purchaseLots.length === 0 ? (
           <p className="text-sm text-slate-500">No hay lotes asociados.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {saleLots.map((l) => (
+            {purchaseLots.map((l) => (
               <Link
                 key={l.id}
-                href={`/ventas/${l.id}`}
+                href={`/lotes/${l.id}`}
                 className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-mono text-slate-700 hover:bg-slate-200"
               >
                 {l.code}
               </Link>
             ))}
           </div>
+        )}
+      </div>
+
+      <div>
+        <h2 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Lotes de venta despachados desde este muestreo (final, Lima)
+        </h2>
+        {!saleLots || saleLots.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            Todavía no se armó ningún lote de venta desde este muestreo — hacelo en Ventas, eligiendo estos
+            lotes de compra.
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {saleLots.map((l) => (
+                <Link
+                  key={l.id}
+                  href={`/ventas/${l.id}`}
+                  className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-mono text-slate-700 hover:bg-slate-200"
+                >
+                  {l.code}
+                </Link>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">{fmtKg(limaTotalKg)} (peso oficial en PY)</p>
+          </>
         )}
       </div>
 

@@ -62,7 +62,7 @@ export const TOOL_DECLARATIONS: GeminiFunctionDeclaration[] = [
   {
     name: "buscar_muestreos",
     description:
-      "Busca muestreos conjuntos en PY (agrupan varios lotes de venta). Devuelve código, cuántos lotes de venta agrupa, peso total, y estado de la liquidación.",
+      "Busca muestreos: se crean en Huanchaco agrupando lotes de COMPRA para el ensaye/liquidación provisional, y más tarde también agrupan los lotes de VENTA (una vez despachados y recibidos en Lima) para el ensaye/liquidación final. Devuelve código, cuántos lotes de cada lado agrupa, y estado de la liquidación.",
     parameters: {
       type: "object",
       properties: { limite: { type: "number", description: "Máximo de resultados, default 20." } },
@@ -71,7 +71,7 @@ export const TOOL_DECLARATIONS: GeminiFunctionDeclaration[] = [
   {
     name: "detalle_muestreo",
     description:
-      "Trae el detalle completo de un muestreo conjunto de PY por código: lotes de venta que agrupa, ensaye provisional y final, liquidación provisional (90%) y final, ventana de fijación de precio y qué metales ya están fijados.",
+      "Trae el detalle completo de un muestreo por código: lotes de compra agrupados en Huanchaco (provisional) y lotes de venta agrupados en Lima (final, se van sumando a medida que se despachan y reciben), ensaye provisional y final, liquidación provisional (90%) y final, ventana de fijación de precio y qué metales ya están fijados.",
     parameters: {
       type: "object",
       properties: { codigo: { type: "string", description: "Código del muestreo, ej. MUE-26-01" } },
@@ -214,31 +214,33 @@ export async function runTool(
       const limite = Math.min(Number(args.limite) || 20, 50);
       const { data, error } = await supabase
         .from("py_sample_batches")
-        .select("id, code, created_at, prov_au_gt, prov_value_total, final_value_total, sale_lots(py_official_weight_kg)")
+        .select(
+          "id, code, created_at, prov_au_gt, prov_value_total, final_value_total, purchase_lots(id), sale_lots(id)",
+        )
         .order("created_at", { ascending: false })
         .limit(limite);
       if (error) return { error: error.message };
-      return (data ?? []).map((b) => {
-        const lots = arr(b.sale_lots);
-        const pesoTotal = lots.reduce((s, l) => s + (l.py_official_weight_kg ?? 0), 0);
-        return {
-          codigo: b.code,
-          creado: b.created_at,
-          lotes_de_venta_agrupados: lots.length,
-          peso_total_kg: pesoTotal,
-          estado: b.final_value_total != null ? "liquidado_final" : b.prov_value_total != null ? "liquidado_provisional" : b.prov_au_gt != null ? "con_ensaye_provisional" : "pendiente",
-        };
-      });
+      return (data ?? []).map((b) => ({
+        codigo: b.code,
+        creado: b.created_at,
+        lotes_de_compra_agrupados: arr(b.purchase_lots).length,
+        lotes_de_venta_despachados: arr(b.sale_lots).length,
+        estado: b.final_value_total != null ? "liquidado_final" : b.prov_value_total != null ? "liquidado_provisional" : b.prov_au_gt != null ? "con_ensaye_provisional" : "pendiente",
+      }));
     }
 
     case "detalle_muestreo": {
       const codigo = String(args.codigo ?? "");
       const { data: batch } = await supabase.from("py_sample_batches").select("*").eq("code", codigo).maybeSingle();
       if (!batch) return { error: `No se encontró el muestreo "${codigo}".` };
-      const { data: saleLots } = await supabase.from("sale_lots").select("code").eq("sample_batch_id", batch.id);
+      const [{ data: purchaseLots }, { data: saleLots }] = await Promise.all([
+        supabase.from("purchase_lots").select("code").eq("sample_batch_id", batch.id),
+        supabase.from("sale_lots").select("code").eq("sample_batch_id", batch.id),
+      ]);
       return {
         codigo: batch.code,
-        lotes_de_venta: (saleLots ?? []).map((l) => l.code),
+        lotes_de_compra_provisional: (purchaseLots ?? []).map((l) => l.code),
+        lotes_de_venta_final: (saleLots ?? []).map((l) => l.code),
         ensaye_provisional: {
           au_gt: batch.prov_au_gt,
           ag_gt: batch.prov_ag_gt,
