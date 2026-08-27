@@ -7,6 +7,29 @@ Repo: `C:\Users\Carlos\OneDrive\Desktop\FINANZAS\ginebra-erp` (git inicializado,
 commits incrementales con mensajes descriptivos — revisar `git log` para el detalle
 de cada paso).
 
+## Bug grave resuelto: la app tardaba minutos en cambiar de pantalla
+
+El usuario reportó que la app "tardaba mucho al cambiar de pantalla". La causa:
+`src/proxy.ts` (el middleware que corre antes de CADA página) llamaba a
+`supabase.auth.getUser()` — que valida la sesión llamando por red al servidor de
+Supabase — y esa llamada puntual tardaba entre 40 segundos y más de 2 minutos en
+esta red/máquina (mismo tipo de problema que ya se había visto con `fetch()` nativo
+bloqueado hacia inversoro.es, resuelto en su momento usando `curl`). Se detectó
+mirando los logs del servidor (`GET /calendario 200 in 56s (proxy.ts: 55s,
+application-code: 431ms)` — el 99% del tiempo se iba en el proxy, no en la página).
+
+**Fix** (`src/lib/supabase/middleware.ts`): el proxy ahora usa `getSession()` en vez
+de `getUser()` — lee la sesión de la cookie **sin llamar por red**, así que decide
+si redirige a `/login` en milisegundos. La validación real y segura (con
+`getUser()`, contra el servidor de Supabase) se sigue haciendo donde ya era rápida:
+en `getCurrentUser()` (`src/lib/auth.ts`), que corre en `(app)/layout.tsx` de cada
+página. Como el proxy ya no es la única barrera, `(app)/layout.tsx` ahora **si
+redirige de verdad** a `/login` cuando no hay usuario válido (antes solo devolvía
+`null` confiando en que el proxy ya había redirigido). El acceso a los datos sigue
+protegido igual de fuerte por RLS en cada tabla, así que no se perdió seguridad —
+solo se sacó una validación de red redundante y lenta de en medio de cada
+navegación. Medido antes/después: 40-120s → 6-96ms por navegación.
+
 ## Diseño / marca
 
 Paleta rehecha a pedido del usuario para que se parezca al logo de Ginebra

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getCurrentUser, ROLE_LABELS } from "@/lib/auth";
 import { signOut } from "@/app/login/actions";
 
@@ -101,8 +102,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { user, profile } = await getCurrentUser();
 
   if (!user) {
-    // El proxy ya debería haber redirigido, esto es un resguardo extra.
-    return null;
+    // El proxy solo hace un chequeo rápido (sin red) para el caso común; esta es la
+    // validación real (con `getUser()`, contra el servidor de Supabase) y el redirect
+    // de verdad si no hay sesión válida.
+    redirect("/login");
   }
 
   if (!profile || !profile.active) {
