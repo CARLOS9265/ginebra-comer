@@ -1,7 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+
+const NETWORK_ERROR_MESSAGE =
+  "No se pudo conectar (problema de red, no de la contraseña). Probá de nuevo en unos segundos.";
 
 export type AuthFormState = {
   error?: string;
@@ -23,7 +27,7 @@ export async function signIn(
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    return { error: "Correo o contraseña incorrectos." };
+    return { error: isAuthRetryableFetchError(error) ? NETWORK_ERROR_MESSAGE : "Correo o contraseña incorrectos." };
   }
 
   redirect("/");
@@ -52,7 +56,7 @@ export async function signUp(
   });
 
   if (error) {
-    return { error: error.message };
+    return { error: isAuthRetryableFetchError(error) ? NETWORK_ERROR_MESSAGE : error.message };
   }
 
   return {

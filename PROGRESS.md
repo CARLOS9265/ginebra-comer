@@ -30,6 +30,36 @@ protegido igual de fuerte por RLS en cada tabla, así que no se perdió segurida
 solo se sacó una validación de red redundante y lenta de en medio de cada
 navegación. Medido antes/después: 40-120s → 6-96ms por navegación.
 
+**Esto no eliminó el problema de red de fondo, solo el punto donde más dolía.**
+Después del fix de arriba, el usuario reportó una consulta puntual todavía lenta
+(guardar una programación se quedó colgado en "Guardando..."). Los logs mostraron
+que la red a Supabase **en general** (no solo la validación de sesión del proxy)
+tiene cortes intermitentes de 30s a varios minutos — mismo problema de red de la
+máquina, más amplio de lo que se pensó al principio. Dos cambios para que esto
+nunca vuelva a colgar la app indefinidamente:
+- `src/lib/supabase/fetch-with-timeout.ts` — un `fetch` con límite de 15s
+  (`AbortSignal.timeout`), enchufado vía la opción `global.fetch` en los dos
+  lugares donde se crea el cliente de Supabase del lado del servidor
+  (`lib/supabase/server.ts` y `lib/supabase/middleware.ts`). Si la red se cuelga,
+  ahora falla rápido (15s) en vez de tardar minutos — se puede reintentar en
+  vez de quedar mirando un spinner sin saber si sigue cargando o ya murió.
+- `src/app/login/actions.ts` — antes cualquier error de `signInWithPassword`
+  (incluido un timeout de red) se mostraba como "Correo o contraseña
+  incorrectos", lo cual es engañoso: pasó justo esto durante las pruebas, un
+  timeout de red hizo pensar que la contraseña estaba mal. Ahora usa
+  `isAuthRetryableFetchError` (de `@supabase/supabase-js`) para distinguir:
+  error de red → "No se pudo conectar (problema de red, no de la contraseña).
+  Probá de nuevo en unos segundos."; error real de credenciales → el mensaje
+  de siempre. Mismo criterio aplicado a `signUp`.
+- **El problema de red de fondo sigue sin resolverse** (no es algo que se
+  arregle desde el código de la app) — durante las pruebas, el login llegó a
+  fallar 3 veces seguidas por timeout específicamente contra el servicio de
+  autenticación de Supabase, mientras que la mayoría de las consultas
+  normales sí andaban rápido. Si esto se repite seguido, revisar en la
+  máquina del usuario: wifi/VPN inestable, antivirus o firewall haciendo
+  inspección de HTTPS (mismo tipo de causa que bloqueaba `fetch()` nativo
+  hacia inversoro.es), o reiniciar el router/adaptador de red.
+
 ## Diseño / marca
 
 Paleta rehecha a pedido del usuario para que se parezca al logo de Ginebra
