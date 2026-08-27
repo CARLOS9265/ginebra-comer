@@ -54,6 +54,16 @@ tiene lotes o programaciones asociadas).
   usuario), sin ley de laboratorio (no existe a esta altura del proceso).
 - Transportista es un selector fijo (`src/lib/carriers.ts`): Jose Miguel Rodriguez /
   Laurion Company — únicos dos transportistas reales del negocio.
+- **Placa → transportista automático** (`src/lib/plates.ts`, pedido del usuario con
+  una tabla real de 4 placas): todo campo "Placa" del sistema (`LotForm`,
+  `calendario/CalendarView.tsx`, `WarehouseTransferForm`, `ventas/[id]/DispatchForm`)
+  es un `<input>` con `list="known-plates"` (datalist con las placas conocidas, para
+  que se puedan **elegir** de una lista en vez de tibiar el texto a mano) y un
+  `onChange` que, si la placa coincide con `PLATE_CARRIERS`, completa sola el
+  `<select>` de transportista (por `ref`, sin volverlo un campo controlado). Sigue
+  siendo texto libre para placas que no estén en la lista — no se perdió la
+  flexibilidad, solo se ganó el autocompletado para las conocidas. Agregar una placa
+  nueva es sumar una línea en `plates.ts`, mismo criterio que `carriers.ts`.
 - Panel "Pago provisional sugerido": lee oro/plata **en vivo** (ver abajo) + plomo
   cargado a mano, y con una **ley estimada** (Au g/t, Ag g/t, Pb % — no es de
   laboratorio, es un supuesto para el pago inicial) calcula el prorrateo real que usa

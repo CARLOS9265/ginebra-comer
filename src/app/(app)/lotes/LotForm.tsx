@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { createPurchaseLot, updatePurchaseLot, type LotFormState } from "./actions";
 import { CARRIERS } from "@/lib/carriers";
+import { KNOWN_PLATES, carrierForPlate } from "@/lib/plates";
 import { calcProvisionalPrice } from "@/lib/provisional-price";
 
 type Provider = { id: string; code: string; name: string; concession: string | null };
@@ -62,6 +63,7 @@ export function LotForm({
   const [silverGrade, setSilverGrade] = useState(initialValues?.estimated_ag ?? "");
   const [leadGrade, setLeadGrade] = useState(initialValues?.estimated_pb ?? "");
   const [provisional, setProvisional] = useState(initialValues?.provisional_price_per_tmh ?? "");
+  const carrierSelectRef = useRef<HTMLSelectElement>(null);
 
   const suggestion = useMemo(() => {
     if (!refPrices || refPrices.gold == null || refPrices.silver == null) return null;
@@ -83,6 +85,11 @@ export function LotForm({
   return (
     <div className="grid gap-6 lg:grid-cols-[1.2fr_0.9fr]">
       <form action={action} className="space-y-6">
+        <datalist id="known-plates">
+          {KNOWN_PLATES.map((p) => (
+            <option key={p} value={p} />
+          ))}
+        </datalist>
         <input type="hidden" name="provider_code" value={providerCode} />
         {refPrices?.gold != null && <input type="hidden" name="estimated_price_au" value={refPrices.gold} />}
         {refPrices?.silver != null && <input type="hidden" name="estimated_price_ag" value={refPrices.silver} />}
@@ -136,10 +143,27 @@ export function LotForm({
                 className={inputClass}
               />
             </label>
-            <TextField label="Placa del volquete" name="truck_plate" required={false} defaultValue={initialValues?.truck_plate} />
+            <label className="block">
+              <FieldLabel>Placa del volquete</FieldLabel>
+              <input
+                name="truck_plate"
+                list="known-plates"
+                defaultValue={initialValues?.truck_plate}
+                onChange={(e) => {
+                  const carrier = carrierForPlate(e.target.value);
+                  if (carrier && carrierSelectRef.current) carrierSelectRef.current.value = carrier;
+                }}
+                className={inputClass}
+              />
+            </label>
             <label className="block">
               <FieldLabel>Transportista</FieldLabel>
-              <select name="carrier_name" defaultValue={initialValues?.carrier_name ?? ""} className={selectClass}>
+              <select
+                name="carrier_name"
+                ref={carrierSelectRef}
+                defaultValue={initialValues?.carrier_name ?? ""}
+                className={selectClass}
+              >
                 <option value="">Elegir...</option>
                 {CARRIERS.map((c) => (
                   <option key={c} value={c}>

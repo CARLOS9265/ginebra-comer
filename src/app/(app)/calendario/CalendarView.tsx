@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   buildMonthGrid,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/calendar";
 import { createSchedule, deleteSchedule, updateSchedule, updateScheduleStatus, type ScheduleFormState } from "./actions";
 import { CARRIERS } from "@/lib/carriers";
+import { KNOWN_PLATES, carrierForPlate } from "@/lib/plates";
 
 type Provider = { id: string; code: string; name: string };
 type ScheduleItem = {
@@ -291,6 +292,7 @@ function ScheduleForm({
 }) {
   const [type, setType] = useState<"compra" | "despacho">(editing?.type ?? "compra");
   const editingProvider = editing ? providerOf(editing) : null;
+  const carrierSelectRef = useRef<HTMLSelectElement>(null);
   const [state, action, pending] = useActionState<ScheduleFormState, FormData>(
     async (prev, formData) => {
       const result = editing
@@ -304,6 +306,11 @@ function ScheduleForm({
 
   return (
     <form action={action} className="space-y-3">
+      <datalist id="known-plates">
+        {KNOWN_PLATES.map((p) => (
+          <option key={p} value={p} />
+        ))}
+      </datalist>
       <input type="hidden" name="scheduled_date" value={date} />
 
       {editing ? (
@@ -371,11 +378,21 @@ function ScheduleForm({
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
           <FieldLabel>Placa</FieldLabel>
-          <input name="truck_plate" type="text" defaultValue={editing?.truck_plate ?? ""} className={inputClass} />
+          <input
+            name="truck_plate"
+            type="text"
+            list="known-plates"
+            defaultValue={editing?.truck_plate ?? ""}
+            onChange={(e) => {
+              const carrier = carrierForPlate(e.target.value);
+              if (carrier && carrierSelectRef.current) carrierSelectRef.current.value = carrier;
+            }}
+            className={inputClass}
+          />
         </label>
         <label className="block">
           <FieldLabel>Transportista</FieldLabel>
-          <select name="carrier_name" defaultValue={editing?.carrier_name ?? ""} className={inputClass}>
+          <select name="carrier_name" ref={carrierSelectRef} defaultValue={editing?.carrier_name ?? ""} className={inputClass}>
             <option value="">Elegir...</option>
             {CARRIERS.map((c) => (
               <option key={c} value={c}>

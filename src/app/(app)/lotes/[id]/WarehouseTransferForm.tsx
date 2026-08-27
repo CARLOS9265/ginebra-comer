@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef } from "react";
 import { createWarehouseTransfer, updateWarehouseTransfer, type LogisticsFormState } from "./actions";
 import { CARRIERS } from "@/lib/carriers";
+import { KNOWN_PLATES, carrierForPlate } from "@/lib/plates";
 
 function toLocalInputValue(iso: string | null): string {
   if (!iso) return "";
@@ -36,6 +37,7 @@ export function WarehouseTransferForm({
     : createWarehouseTransfer.bind(null, lotId);
   const [state, action, pending] = useActionState<LogisticsFormState, FormData>(boundAction, null);
   const prevPending = useRef(false);
+  const carrierSelectRef = useRef<HTMLSelectElement>(null);
   useEffect(() => {
     if (prevPending.current && !pending && state == null) onDone?.();
     prevPending.current = pending;
@@ -43,6 +45,11 @@ export function WarehouseTransferForm({
 
   return (
     <form action={action} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+      <datalist id="known-plates">
+        {KNOWN_PLATES.map((p) => (
+          <option key={p} value={p} />
+        ))}
+      </datalist>
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Costo de montacarga (S/)</span>
@@ -56,7 +63,12 @@ export function WarehouseTransferForm({
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Transportista</span>
-          <select name="dispatch_carrier" defaultValue={initialValues?.dispatch_carrier ?? ""} className={inputClass}>
+          <select
+            name="dispatch_carrier"
+            ref={carrierSelectRef}
+            defaultValue={initialValues?.dispatch_carrier ?? ""}
+            className={inputClass}
+          >
             <option value="">Elegir...</option>
             {CARRIERS.map((c) => (
               <option key={c} value={c}>
@@ -69,7 +81,12 @@ export function WarehouseTransferForm({
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Placa del trailer</span>
           <input
             name="dispatch_truck_plate"
+            list="known-plates"
             defaultValue={initialValues?.dispatch_truck_plate ?? ""}
+            onChange={(e) => {
+              const carrier = carrierForPlate(e.target.value);
+              if (carrier && carrierSelectRef.current) carrierSelectRef.current.value = carrier;
+            }}
             className={inputClass}
           />
         </label>
