@@ -42,11 +42,19 @@ export default async function SealsPage({
 
   const { data: openLots } = await supabase
     .from("purchase_lots")
-    .select("id, code")
+    .select("id, code, truck_plate")
     .neq("status", "cerrado")
     .order("code");
 
-  const lots = openLots ?? [];
+  // Al colocar precintos normalmente se sabe qué placa es el volquete, no el código
+  // del lote (que a veces todavía ni se cargó) — por eso el selector se ordena y
+  // muestra por placa primero, para poder ubicar el lote reconociendo la placa.
+  const lots = [...(openLots ?? [])].sort((a, b) => {
+    if (!a.truck_plate && !b.truck_plate) return a.code.localeCompare(b.code);
+    if (!a.truck_plate) return 1;
+    if (!b.truck_plate) return -1;
+    return a.truck_plate.localeCompare(b.truck_plate);
+  });
 
   return (
     <div>

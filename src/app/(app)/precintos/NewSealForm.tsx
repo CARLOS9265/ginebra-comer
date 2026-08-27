@@ -3,7 +3,11 @@
 import { useActionState } from "react";
 import { createSeal, type SealFormState } from "./actions";
 
-type Lot = { id: string; code: string };
+type Lot = { id: string; code: string; truck_plate: string | null };
+
+function lotLabel(l: Lot) {
+  return l.truck_plate ? `${l.truck_plate} — ${l.code}` : l.code;
+}
 
 export function NewSealForm({ lots }: { lots: Lot[] }) {
   const [state, action, pending] = useActionState<SealFormState, FormData>(createSeal, null);
@@ -22,16 +26,16 @@ export function NewSealForm({ lots }: { lots: Lot[] }) {
         />
       </label>
       <label className="block">
-        <span className="mb-1.5 block text-xs font-medium text-slate-500">Lote (opcional)</span>
+        <span className="mb-1.5 block text-xs font-medium text-slate-500">Placa / Lote (opcional)</span>
         <select
           name="purchase_lot_id"
           defaultValue=""
-          className="w-48 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-gold-500"
+          className="w-56 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-gold-500"
         >
           <option value="">Sin asignar (stock)</option>
           {lots.map((l) => (
             <option key={l.id} value={l.id}>
-              {l.code}
+              {lotLabel(l)}
             </option>
           ))}
         </select>

@@ -3,8 +3,12 @@
 import { useState, useTransition } from "react";
 import { verifySeal, openSeal, voidSeal, deleteSeal, assignSealToLot } from "./actions";
 
-type Lot = { id: string; code: string };
+type Lot = { id: string; code: string; truck_plate: string | null };
 type ActionResult = { error?: string } | null | void;
+
+function lotLabel(l: Lot) {
+  return l.truck_plate ? `${l.truck_plate} — ${l.code}` : l.code;
+}
 
 export function SealRowActions({ id, status, lots }: { id: string; status: string; lots: Lot[] }) {
   const [pending, startTransition] = useTransition();
@@ -92,7 +96,7 @@ export function SealRowActions({ id, status, lots }: { id: string; status: strin
           >
             {lots.map((l) => (
               <option key={l.id} value={l.id}>
-                {l.code}
+                {lotLabel(l)}
               </option>
             ))}
           </select>

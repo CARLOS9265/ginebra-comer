@@ -131,6 +131,16 @@ cadena de estados completa: disponible → colocado → verificado → abierto (
 motivo) / anulado (con motivo) en cualquier punto. Filtro por estado. Roles
 permitidos calcados de la política RLS de `seals` (operaciones, calidad,
 gerencia, administrador — **no** compras, a diferencia de lotes).
+- **Selector de lote ordenado y mostrado por placa** (pedido del usuario, con
+  captura): al colocar precintos, en la práctica se sabe qué placa es el
+  volquete, no el código del lote (que a veces ni se cargó todavía) — así que
+  el selector de lote (en "Agregar precinto" y en "Asignar a lote") ahora
+  muestra `PLACA — CÓDIGO` y está ordenado por placa (lotes sin placa
+  cargada quedan al final, ordenados por código). La consulta de lotes en
+  `page.tsx` ahora trae `truck_plate`; el armado del label vive en
+  `lotLabel()`, duplicada igual en `NewSealForm.tsx` y `SealRowActions.tsx`
+  por ser un helper de dos líneas — no vale la pena un archivo compartido
+  para esto.
 
 **Detalle de lote / transporte / pesaje** (`/lotes/[id]`) — el código del lote en
 la lista ahora lleva acá en vez de a texto plano. Muestra precintos asignados
