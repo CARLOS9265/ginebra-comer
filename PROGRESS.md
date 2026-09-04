@@ -427,6 +427,22 @@ tienen liquidación definitiva; si falta alguno queda contado aparte como
 "pendiente" (bolsones) en vez de arrastrar un número incompleto. Con esto
 se cierra Fase 2 completa (sin contar blending, descartado a pedido del
 usuario).
+- **Desglose por columna** (pedido del usuario, con captura de la tabla
+  vieja): antes cada fila solo mostraba el margen final; ahora también
+  **Costo de compra**, **Gastos operativos** y **Precio de venta**, para que
+  se vea de dónde sale el número, no solo el resultado. "Costo de compra" es
+  `precio_definitivo_total` prorrateado (lo que se le pagó al proveedor —
+  **ya viene neto** de gastos operativos y margen objetivo, por cómo se
+  arma la valorización definitiva en `contract.ts`). "Gastos operativos" es
+  `costos_per_tmh × tmh_used` del mismo registro de liquidación, prorrateado
+  igual — se muestra **solo para transparencia**, no se resta de nuevo del
+  margen (ya está descontado adentro del costo de compra; Margen = Precio de
+  venta − Costo de compra, sin restar Gastos operativos otra vez). "Precio
+  de venta" es `final_value_total` del muestreo de PY, prorrateado. Mismos
+  tres campos expuestos también a la herramienta `resumen_margenes` del
+  asistente de IA. Verificado con datos reales: la suma de las 3 filas de
+  "por lote de compra" cierra exacto contra la fila combinada de "por lote
+  de venta" (mismo despacho, 3 lotes de compra mezclados).
 
 **Precios internacionales** (`/precios`) — oro y plata se leen **en vivo** de
 inversoro.es (la fuente que pidió el usuario) en cada carga de página. Plomo se

@@ -39,6 +39,9 @@ export default async function MargenesPage() {
                   <th className="px-4 py-3">Lote de compra</th>
                   <th className="px-4 py-3 text-right">Bolsones</th>
                   <th className="px-4 py-3 text-right">Pendiente</th>
+                  <th className="px-4 py-3 text-right">Costo de compra</th>
+                  <th className="px-4 py-3 text-right">Gastos operativos</th>
+                  <th className="px-4 py-3 text-right">Precio de venta</th>
                   <th className="px-4 py-3 text-right">Margen</th>
                 </tr>
               </thead>
@@ -53,6 +56,15 @@ export default async function MargenesPage() {
                     <td className="px-4 py-3 text-right font-mono text-slate-400">{fmtBags(v.totalBags)}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-400">
                       {v.pendingBags > 0 ? fmtBags(v.pendingBags) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-500">
+                      {v.hasComplete ? fmtUSD(v.costoCompra) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-500">
+                      {v.hasComplete ? fmtUSD(v.gastosOperativos) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-500">
+                      {v.hasComplete ? fmtUSD(v.precioVenta) : "—"}
                     </td>
                     <td
                       className={`px-4 py-3 text-right font-mono ${
@@ -87,6 +99,9 @@ export default async function MargenesPage() {
                   <th className="px-4 py-3">Lote de venta</th>
                   <th className="px-4 py-3 text-right">Bolsones</th>
                   <th className="px-4 py-3 text-right">Pendiente</th>
+                  <th className="px-4 py-3 text-right">Costo de compra</th>
+                  <th className="px-4 py-3 text-right">Gastos operativos</th>
+                  <th className="px-4 py-3 text-right">Precio de venta</th>
                   <th className="px-4 py-3 text-right">Margen</th>
                 </tr>
               </thead>
@@ -101,6 +116,15 @@ export default async function MargenesPage() {
                     <td className="px-4 py-3 text-right font-mono text-slate-400">{fmtBags(v.totalBags)}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-400">
                       {v.pendingBags > 0 ? fmtBags(v.pendingBags) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-500">
+                      {v.hasComplete ? fmtUSD(v.costoCompra) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-500">
+                      {v.hasComplete ? fmtUSD(v.gastosOperativos) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-500">
+                      {v.hasComplete ? fmtUSD(v.precioVenta) : "—"}
                     </td>
                     <td
                       className={`px-4 py-3 text-right font-mono ${

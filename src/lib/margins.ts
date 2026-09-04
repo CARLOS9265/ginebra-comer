@@ -18,7 +18,16 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-export type MarginAgg = { code: string; totalBags: number; pendingBags: number; margin: number; hasComplete: boolean };
+export type MarginAgg = {
+  code: string;
+  totalBags: number;
+  pendingBags: number;
+  costoCompra: number;
+  gastosOperativos: number;
+  precioVenta: number;
+  margin: number;
+  hasComplete: boolean;
+};
 
 export type MarginsResult = {
   byPurchaseLot: [string, MarginAgg][];
@@ -62,11 +71,17 @@ export async function computeMargins(supabase: SupabaseClient): Promise<MarginsR
     purchaseLotIds.length > 0
       ? supabase
           .from("lot_settlements")
-          .select("purchase_lot_id, precio_definitivo_total, created_at")
+          .select("purchase_lot_id, precio_definitivo_total, costos_per_tmh, tmh_used, created_at")
           .in("purchase_lot_id", purchaseLotIds)
           .order("created_at", { ascending: false })
       : Promise.resolve({
-          data: [] as { purchase_lot_id: string; precio_definitivo_total: number | null; created_at: string }[],
+          data: [] as {
+            purchase_lot_id: string;
+            precio_definitivo_total: number | null;
+            costos_per_tmh: number | null;
+            tmh_used: number | null;
+            created_at: string;
+          }[],
         }),
     purchaseLotIds.length > 0
       ? supabase.from("comminutions").select("purchase_lot_id, bag_count").in("purchase_lot_id", purchaseLotIds)
@@ -80,10 +95,19 @@ export async function computeMargins(supabase: SupabaseClient): Promise<MarginsR
     }
   }
 
+  // "Costo de compra" = lo que se le pagó al proveedor (ya neto de gastos operativos y
+  // margen objetivo, por cómo se calcula la valorización definitiva — ver contract.ts).
+  // "Gastos operativos" se guarda aparte, por TMH, en el mismo registro de liquidación —
+  // se muestra solo para que se vea de dónde sale el costo de compra, no se resta de
+  // nuevo del margen (ya está descontado adentro del costo de compra).
   const settlementByLot = new Map<string, number>();
+  const operatingCostByLot = new Map<string, number>();
   for (const s of settlements ?? []) {
-    if (!settlementByLot.has(s.purchase_lot_id) && s.precio_definitivo_total != null) {
-      settlementByLot.set(s.purchase_lot_id, s.precio_definitivo_total);
+    if (!settlementByLot.has(s.purchase_lot_id)) {
+      if (s.precio_definitivo_total != null) settlementByLot.set(s.purchase_lot_id, s.precio_definitivo_total);
+      if (s.costos_per_tmh != null && s.tmh_used != null) {
+        operatingCostByLot.set(s.purchase_lot_id, s.costos_per_tmh * s.tmh_used);
+      }
     }
   }
 
@@ -98,6 +122,8 @@ export async function computeMargins(supabase: SupabaseClient): Promise<MarginsR
     const settlementTotal = settlementByLot.get(purchaseLot.id);
     const lotTotalBags = totalBagsByLot.get(purchaseLot.id);
     const costPerBag = settlementTotal != null && lotTotalBags ? settlementTotal / lotTotalBags : null;
+    const operatingCostTotal = operatingCostByLot.get(purchaseLot.id);
+    const operatingCostPerBag = operatingCostTotal != null && lotTotalBags ? operatingCostTotal / lotTotalBags : null;
 
     const batch = saleLot.sample_batch_id ? batchById.get(saleLot.sample_batch_id) : null;
     const batchTotalBags = saleLot.sample_batch_id ? batchBagCounts.get(saleLot.sample_batch_id) : null;
@@ -105,17 +131,26 @@ export async function computeMargins(supabase: SupabaseClient): Promise<MarginsR
       batch?.final_value_total != null && batchTotalBags ? batch.final_value_total / batchTotalBags : null;
 
     const complete = costPerBag != null && revenuePerBag != null;
-    const marginTotal = complete ? a.bag_count * (revenuePerBag! - costPerBag!) : 0;
+    const costoCompraTotal = complete ? a.bag_count * costPerBag! : 0;
+    const precioVentaTotal = complete ? a.bag_count * revenuePerBag! : 0;
+    const gastosOperativosTotal = complete && operatingCostPerBag != null ? a.bag_count * operatingCostPerBag : 0;
+    const marginTotal = complete ? precioVentaTotal - costoCompraTotal : 0;
 
     const pl = byPurchaseLot.get(purchaseLot.id) ?? {
       code: purchaseLot.code,
       totalBags: 0,
       pendingBags: 0,
+      costoCompra: 0,
+      gastosOperativos: 0,
+      precioVenta: 0,
       margin: 0,
       hasComplete: false,
     };
     pl.totalBags += a.bag_count;
     if (complete) {
+      pl.costoCompra += costoCompraTotal;
+      pl.gastosOperativos += gastosOperativosTotal;
+      pl.precioVenta += precioVentaTotal;
       pl.margin += marginTotal;
       pl.hasComplete = true;
     } else {
@@ -127,11 +162,17 @@ export async function computeMargins(supabase: SupabaseClient): Promise<MarginsR
       code: saleLot.code,
       totalBags: 0,
       pendingBags: 0,
+      costoCompra: 0,
+      gastosOperativos: 0,
+      precioVenta: 0,
       margin: 0,
       hasComplete: false,
     };
     sl.totalBags += a.bag_count;
     if (complete) {
+      sl.costoCompra += costoCompraTotal;
+      sl.gastosOperativos += gastosOperativosTotal;
+      sl.precioVenta += precioVentaTotal;
       sl.margin += marginTotal;
       sl.hasComplete = true;
     } else {

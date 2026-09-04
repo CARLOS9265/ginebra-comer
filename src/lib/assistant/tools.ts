@@ -293,12 +293,18 @@ export async function runTool(
           codigo: v.code,
           cantidad_bolsones: v.totalBags,
           bolsones_pendientes: v.pendingBags,
+          costo_de_compra_usd: v.hasComplete ? v.costoCompra : null,
+          gastos_operativos_usd: v.hasComplete ? v.gastosOperativos : null,
+          precio_de_venta_usd: v.hasComplete ? v.precioVenta : null,
           margen_usd: v.hasComplete ? v.margin : null,
         })),
         por_lote_de_venta: result.bySaleLot.map(([, v]) => ({
           codigo: v.code,
           cantidad_bolsones: v.totalBags,
           bolsones_pendientes: v.pendingBags,
+          costo_de_compra_usd: v.hasComplete ? v.costoCompra : null,
+          gastos_operativos_usd: v.hasComplete ? v.gastosOperativos : null,
+          precio_de_venta_usd: v.hasComplete ? v.precioVenta : null,
           margen_usd: v.hasComplete ? v.margin : null,
         })),
       };
