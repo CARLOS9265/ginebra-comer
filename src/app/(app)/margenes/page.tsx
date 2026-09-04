@@ -15,9 +15,10 @@ export default async function MargenesPage() {
       <div>
         <h1 className="text-xl font-semibold text-slate-900">Márgenes</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Cruza el costo definitivo de cada lote de compra con el ingreso final de cada muestreo de PY,
-          prorrateado por cantidad de bolsones. Solo se calcula cuando ambos lados tienen liquidación
-          definitiva — el resto queda marcado como pendiente.
+          Margen = Precio de venta − Costo de compra − Gastos operativos (transporte, seguridad,
+          molienda, montacarga y flete a Lima, todo real, no estimado), prorrateado por cantidad de
+          bolsones. Solo se calcula cuando ambos lados tienen liquidación definitiva — el resto queda
+          marcado como pendiente.
         </p>
       </div>
 

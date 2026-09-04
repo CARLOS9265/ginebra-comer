@@ -13,6 +13,7 @@ type SaleLot = {
   dispatched_at: string | null;
   dispatch_carrier: string | null;
   dispatch_truck_plate: string | null;
+  freight_tariff_pen_per_tmh: number | null;
 };
 
 export function DispatchSection({ saleLot }: { saleLot: SaleLot }) {
@@ -35,6 +36,7 @@ export function DispatchSection({ saleLot }: { saleLot: SaleLot }) {
       <div className="text-slate-600">
         {saleLot.dispatch_carrier ?? "Transportista sin datos"} · {fmtDate(saleLot.dispatched_at)}
         {saleLot.dispatch_truck_plate && ` · Placa ${saleLot.dispatch_truck_plate}`}
+        {saleLot.freight_tariff_pen_per_tmh != null && ` · Flete S/ ${saleLot.freight_tariff_pen_per_tmh}/TMH`}
       </div>
       <div className="flex items-center gap-3">
         <button onClick={() => setEditing(true)} className="text-xs text-gold-700 hover:underline">

@@ -16,6 +16,7 @@ type InitialValues = {
   dispatched_at: string | null;
   dispatch_carrier: string | null;
   dispatch_truck_plate: string | null;
+  freight_tariff_pen_per_tmh: number | null;
 };
 
 export function DispatchForm({
@@ -81,6 +82,18 @@ export function DispatchForm({
               const carrier = carrierForPlate(e.target.value);
               if (carrier && carrierSelectRef.current) carrierSelectRef.current.value = carrier;
             }}
+            className={inputClass}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-medium text-slate-500">
+            Tarifa de flete a Lima (S/ por TMH, incl. IGV)
+          </span>
+          <input
+            name="freight_tariff_pen_per_tmh"
+            type="number"
+            step="0.01"
+            defaultValue={initialValues?.freight_tariff_pen_per_tmh ?? 135}
             className={inputClass}
           />
         </label>

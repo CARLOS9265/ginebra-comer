@@ -17,7 +17,7 @@ export default async function SaleLotDetailPage({ params }: { params: Promise<{ 
   const { data: saleLot } = await supabase
     .from("sale_lots")
     .select(
-      "id, code, status, notes, created_at, dispatched_at, dispatch_carrier, dispatch_truck_plate, received_at_py, py_warehouse, py_received_by, py_official_weight_kg, sample_batch_id, py_sample_batches(code)",
+      "id, code, status, notes, created_at, dispatched_at, dispatch_carrier, dispatch_truck_plate, freight_tariff_pen_per_tmh, received_at_py, py_warehouse, py_received_by, py_official_weight_kg, sample_batch_id, py_sample_batches(code)",
     )
     .eq("id", id)
     .maybeSingle();

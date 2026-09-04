@@ -429,20 +429,36 @@ se cierra Fase 2 completa (sin contar blending, descartado a pedido del
 usuario).
 - **Desglose por columna** (pedido del usuario, con captura de la tabla
   vieja): antes cada fila solo mostraba el margen final; ahora también
-  **Costo de compra**, **Gastos operativos** y **Precio de venta**, para que
-  se vea de dónde sale el número, no solo el resultado. "Costo de compra" es
-  `precio_definitivo_total` prorrateado (lo que se le pagó al proveedor —
-  **ya viene neto** de gastos operativos y margen objetivo, por cómo se
-  arma la valorización definitiva en `contract.ts`). "Gastos operativos" es
-  `costos_per_tmh × tmh_used` del mismo registro de liquidación, prorrateado
-  igual — se muestra **solo para transparencia**, no se resta de nuevo del
-  margen (ya está descontado adentro del costo de compra; Margen = Precio de
-  venta − Costo de compra, sin restar Gastos operativos otra vez). "Precio
-  de venta" es `final_value_total` del muestreo de PY, prorrateado. Mismos
-  tres campos expuestos también a la herramienta `resumen_margenes` del
-  asistente de IA. Verificado con datos reales: la suma de las 3 filas de
-  "por lote de compra" cierra exacto contra la fila combinada de "por lote
-  de venta" (mismo despacho, 3 lotes de compra mezclados).
+  **Costo de compra**, **Gastos operativos** y **Precio de venta**. "Costo de
+  compra" es `precio_definitivo_total` prorrateado (lo que se le pagó al
+  proveedor). "Precio de venta" es `final_value_total` del muestreo de PY,
+  prorrateado.
+- **"Gastos operativos" pasó de ser un estimado fijo a la suma de costos
+  REALES** (el usuario preguntó puntualmente "¿se consideró el transporte de
+  Trujillo a Lima?" — la respuesta era que no, ni ese ni el resto de los
+  costos reales estaban entrando al margen, solo un número teórico de
+  `contract_settings`). Ahora `computeMargins` suma, por lote de compra:
+  transporte a Trujillo (`transport_events.tariff_pen_per_tmh × tmh_used` +
+  `security_cost_pen`) + molienda (`comminutions.tariff_pen_per_ton ×
+  processed_tons`) + montacarga a Huanchaco (`warehouse_transfers.
+  forklift_cost_pen`); y por lote de venta: el **flete de Huanchaco a Lima**
+  (nuevo campo `sale_lots.freight_tariff_pen_per_tmh`, migración
+  0019_freight_cost.sql — no existía ningún registro de este costo antes.
+  Tarifa real confirmada por el usuario: **S/ 135/TMH, IGV incluido**,
+  default editable por despacho igual que el resto de las tarifas). Todo en
+  soles, convertido a USD con `contract_settings.tipo_cambio`. El flete es
+  costo de un despacho (lote de venta), así que se prorratea entre los lotes
+  de compra que viajaron en ese camión por cantidad de bolsones — mismo
+  criterio que el resto de la pantalla.
+- **Ahora sí se resta del margen** (antes no, porque el "costo" que se
+  mostraba ya venía neto de la fórmula del contrato): Margen = Precio de
+  venta − Costo de compra − Gastos operativos. El campo "Tarifa de flete a
+  Lima" se agregó a `DispatchForm.tsx` (ventas), con su default de S/ 135 y
+  editable por si algún viaje sale distinto. Mismos campos expuestos también
+  a la herramienta `resumen_margenes` del asistente de IA. Verificado con
+  datos reales: la suma de las 3 filas de "por lote de compra" cierra exacto
+  contra la fila combinada de "por lote de venta"; el margen total bajó de
+  $47,599 a $38,288 al empezar a descontar los gastos operativos reales.
 
 **Precios internacionales** (`/precios`) — oro y plata se leen **en vivo** de
 inversoro.es (la fuente que pidió el usuario) en cada carga de página. Plomo se
@@ -461,7 +477,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0018`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0019`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
@@ -554,6 +570,11 @@ navegador real, o mover este fetch a un cron/edge function con otro runtime.
     pesaje de Huanchaco fallaba con "Elegí un tipo de pesaje válido." en
     cada intento. Corregido agregando `"huanchaco"` a esa lista en ambas
     funciones.
+
+- `0019_freight_cost.sql` — columna nueva `sale_lots.freight_tariff_pen_per_tmh`
+  (default S/ 135, IGV incluido — tarifa real que confirmó el usuario). Nada
+  tenía este costo registrado hasta ahora; ver "Márgenes" más arriba para el
+  detalle completo de por qué se agregó y cómo entra al cálculo.
 
 `src/lib/contract.ts` tiene la fórmula de valorización completa del contrato con PY
 (bandas de ley, pagables, humedad, merma) que se armó en la conversación original de

@@ -284,6 +284,7 @@ export async function dispatchSaleLot(
       dispatched_at: dispatchedAt ? new Date(dispatchedAt).toISOString() : new Date().toISOString(),
       dispatch_carrier: str(formData, "dispatch_carrier") || null,
       dispatch_truck_plate: str(formData, "dispatch_truck_plate") || null,
+      freight_tariff_pen_per_tmh: num(formData, "freight_tariff_pen_per_tmh"),
       updated_by: profile.id,
     })
     .eq("id", saleLotId);
@@ -313,6 +314,7 @@ export async function updateDispatch(
       dispatched_at: dispatchedAt ? new Date(dispatchedAt).toISOString() : new Date().toISOString(),
       dispatch_carrier: str(formData, "dispatch_carrier") || null,
       dispatch_truck_plate: str(formData, "dispatch_truck_plate") || null,
+      freight_tariff_pen_per_tmh: num(formData, "freight_tariff_pen_per_tmh"),
       updated_by: profile.id,
     })
     .eq("id", saleLotId);
@@ -346,6 +348,7 @@ export async function undoDispatch(saleLotId: string) {
       dispatched_at: null,
       dispatch_carrier: null,
       dispatch_truck_plate: null,
+      freight_tariff_pen_per_tmh: null,
       updated_by: profile.id,
     })
     .eq("id", saleLotId);
