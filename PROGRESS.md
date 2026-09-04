@@ -96,6 +96,9 @@ inactivas hasta que un administrador les asigna rol (tabla `profiles`, roles:
 operaciones, compras, calidad, comercial, contabilidad, gerencia, administrador).
 Primer admin se activó con `scripts/bootstrap-admin.mjs`. Middleware renombrado a
 `src/proxy.ts` (convención Next.js 16, ya no `middleware.ts`).
+**Estado actual (2026-08-27): solo existe la cuenta de Carlos** (administrador) —
+el usuario confirmó que por ahora el sistema lo usa solo él, para terminar de
+probar que todo funcione, antes de dar de alta al resto del equipo.
 
 **Proveedores** (`/proveedores`) — alta, edición, baja (bloqueada si el proveedor
 tiene lotes o programaciones asociadas).
@@ -598,8 +601,9 @@ punta.
   portal) — `daily_metal_prices` ya guarda el snapshot diario de forma
   agnóstica a la fuente, así que cambiarla no debería tocar el resto de la
   app (mismo patrón que `live-metal-prices.ts` hoy con inversoro.es).
-- Integración con Nisira — falta (mencionada por el usuario, sin detallar
-  todavía qué es exactamente).
+- ~~Integración con Nisira~~ — **descartada.** Se había mencionado antes sin
+  detallar; el usuario confirmó (2026-08-27) que no va a haber integración
+  con Nisira, sacarla del alcance.
 
 **Asistente de IA** (`/asistente`) — chat que responde preguntas en lenguaje
 natural sobre lotes de compra/venta, muestreos, márgenes, precios y
