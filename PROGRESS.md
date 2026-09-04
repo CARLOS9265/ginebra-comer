@@ -128,6 +128,18 @@ tiene lotes o programaciones asociadas).
   real que dio el usuario (Au 4 g/t, Ag 900 g/t, Pb 0.5%, 35 TMH → coincide). Botón
   "Usar sugerido" copia el precio unitario al campo de precio provisional.
 - La ley estimada y el % pagable inicial son totalmente editables por lote.
+- **Tablero de estado por etapa** (`LotPipelineBoard.tsx`, arriba de la tabla) —
+  el usuario pidió poder ver de un vistazo en qué etapa física está cada lote
+  (en tránsito, en el molino, ya molido, listo para trasladar a Huanchaco, en
+  almacén listo para Lima) en vez de tener que leer la columna Estado de cada
+  fila. Agrupa los mismos lotes ya cargados (no hace una consulta aparte) en 6
+  columnas según `purchase_lots.status`: Cargado (`creado`), En tránsito
+  (`en_transito`), En el molino (`pesado` + `recibido_molino`), Molido/en
+  laboratorio (`conminuido` + `en_laboratorio`), Listo para trasladar
+  (`valorizado`), y En almacén — listo para Lima (`en_almacen`). Cada tarjeta
+  es un link directo al lote. Los lotes `cerrado` no se muestran acá (ya
+  terminaron su recorrido) — siguen apareciendo en la tabla de abajo como
+  siempre.
 
 **Precintos** (`/precintos`) — alta (asignado a un lote o "en stock"), y la
 cadena de estados completa: disponible → colocado → verificado → abierto (con

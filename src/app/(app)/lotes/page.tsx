@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { LotRowActions } from "./LotRowActions";
+import { LotPipelineBoard } from "./LotPipelineBoard";
 import { LOT_STATUS_LABELS } from "@/lib/lot-status";
 
 const fmtUSD = (n: number | null) =>
@@ -45,6 +46,8 @@ export default async function LotsPage({
           + Nuevo lote
         </Link>
       </div>
+
+      {lots && lots.length > 0 && <LotPipelineBoard lots={lots} />}
 
       {!lots || lots.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
