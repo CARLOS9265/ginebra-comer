@@ -5,7 +5,34 @@ Turbopack) + TypeScript + Tailwind + Supabase (Postgres, Auth, Storage, RLS).
 
 Repo: `C:\Users\Carlos\OneDrive\Desktop\FINANZAS\ginebra-erp` (git inicializado,
 commits incrementales con mensajes descriptivos — revisar `git log` para el detalle
-de cada paso).
+de cada paso). **Espejo remoto**: `https://github.com/CARLOS9265/ginebra-comer`
+(privado) — hasta ahora el repo solo vivía en esta máquina; se agregó como
+respaldo real y como fuente para el despliegue en Vercel.
+
+## Publicación (Vercel)
+
+Proyecto conectado: **ginebra-comer** en el equipo `personallap` de Vercel,
+enlazado al repo de GitHub de arriba (rama `master`) — cada `git push` a
+`master` dispara un despliegue de producción solo. **Pendiente antes de que
+funcione de verdad**: cargar a mano en el dashboard de Vercel (Project
+Settings → Environment Variables) las mismas 3 variables que hoy solo están
+en `.env.local` de esta máquina: `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `GEMINI_API_KEY` — **nunca** las
+`SUPABASE_DB_*` (esas son solo para `scripts/migrate.mjs` corrido a mano en
+esta máquina, la app en producción no las necesita).
+
+**Cuidado pendiente de revisar una vez publicado:** `src/lib/live-metal-prices.ts`
+usa `execFile("curl", ...)` porque el `fetch()` nativo de Node es bloqueado por
+inversoro.es en esta máquina — no hay garantía de que el binario `curl` exista
+en el runtime serverless de Vercel; si falla ahí, va a fallar en silencio
+(devuelve `null`, no tira error). Como red de contención, se agregó carga
+manual de oro/plata en `/precios` (antes solo plomo la tenía) — si el fetch en
+vivo no anda en producción, el snapshot diario del día se puede seguir
+cargando a mano sin que se rompa nada.
+
+Quedaron 3 proyectos de prueba en el dashboard de Vercel de intentos previos
+fallidos (`ginebra-erp`, `ginebra-erp-test`, `ginebra-erp-app`) — se pueden
+borrar, no están conectados a nada real.
 
 ## Bug grave resuelto: la app tardaba minutos en cambiar de pantalla
 
