@@ -355,6 +355,17 @@ sola fase, van sueltos al final).
   arriba, "Sistema de trazabilidad de mineral" abajo, simétrico con el
   bloque de usuario del otro extremo), en la pantalla de login, y en el
   título de la pestaña del navegador (`src/app/layout.tsx`).
+- **Logo real** (`public/logo.jpeg`, lo pasó el usuario — JPEG, fondo blanco
+  sólido, sin transparencia, 1254×1254, ícono arriba + texto "GINEBRA TRADE
+  PERU" abajo): en el login (fondo blanco) se usa la imagen completa. En el
+  encabezado de la app (fondo navy oscuro) el JPEG completo se vería como un
+  cuadrado blanco feo, así que se recorta **solo el ícono** con CSS
+  (`object-fit: cover` + `object-position` + un contenedor de 64×44px, sin
+  tocar el archivo) dentro de una placa blanca redondeada — el texto de al
+  lado ("Ginebra Trade Peru SAC") ya cubre el nombre. También puesto como
+  favicon (`src/app/layout.tsx`, `metadata.icons`). Si algún día llega una
+  versión con fondo transparente (PNG/SVG), se puede usar directa sin este
+  recorte.
 - De paso se creó
 `/almacen`, pantalla que no existía: muestra los lotes con liquidación de
 compra ya definitiva que todavía no tienen traslado registrado ("listos

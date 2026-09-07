@@ -129,9 +129,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-slate-50 text-slate-800">
       <header className="bg-navy-900">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div>
-            <div className="text-base font-semibold tracking-tight text-white">Ginebra Trade Peru SAC</div>
-            <div className="text-xs text-navy-400">Sistema de trazabilidad de mineral</div>
+          <div className="flex items-center gap-3">
+            <div className="shrink-0 overflow-hidden rounded-md bg-white" style={{ width: 64, height: 44 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.jpeg"
+                alt=""
+                className="h-full w-full object-cover"
+                style={{ objectPosition: "50% 0%" }}
+              />
+            </div>
+            <div>
+              <div className="text-base font-semibold tracking-tight text-white">Ginebra Trade Peru SAC</div>
+              <div className="text-xs text-navy-400">Sistema de trazabilidad de mineral</div>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">

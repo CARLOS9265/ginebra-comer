@@ -18,10 +18,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-white px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Ginebra Trade Peru SAC</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Sistema de trazabilidad de mineral
-          </p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.jpeg" alt="Ginebra Trade Peru SAC" className="mx-auto h-28 w-auto" />
+          <p className="mt-2 text-sm text-slate-500">Sistema de trazabilidad de mineral</p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white shadow-xl">

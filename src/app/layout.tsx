@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Ginebra Trade Peru SAC — Sistema de trazabilidad",
   description: "Trazabilidad de mineral: compra, laboratorio, blending y liquidación con PY.",
+  icons: { icon: "/logo.jpeg" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
