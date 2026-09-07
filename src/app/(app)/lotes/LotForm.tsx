@@ -32,8 +32,10 @@ export type ReferencePrices = {
   isLive: boolean;
 };
 
-const fmtUSD = (n: number, decimals = 2) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: decimals });
+const fmtUSD = (n: number | null, decimals = 2) =>
+  n == null
+    ? "—"
+    : n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: decimals });
 
 export function LotForm({
   providers,
