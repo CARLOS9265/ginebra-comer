@@ -37,26 +37,38 @@ export function PriceForm({
           )}
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <div>
+          <label className="block">
             <span className="mb-1.5 block text-xs font-medium text-slate-500">Oro (USD/oz)</span>
-            <div className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-slate-800">
-              {gold != null ? gold.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
-            </div>
-          </div>
-          <div>
+            <input
+              name="gold_usd_oz"
+              type="number"
+              step="0.01"
+              defaultValue={gold ?? undefined}
+              required
+              className={inputClass}
+            />
+          </label>
+          <label className="block">
             <span className="mb-1.5 block text-xs font-medium text-slate-500">Plata (USD/oz)</span>
-            <div className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-slate-800">
-              {silver != null ? silver.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
-            </div>
-          </div>
+            <input
+              name="silver_usd_oz"
+              type="number"
+              step="0.01"
+              defaultValue={silver ?? undefined}
+              required
+              className={inputClass}
+            />
+          </label>
         </div>
-        {live.fetchedAt && (
+        {live.fetchedAt ? (
           <p className="mt-2 text-xs text-slate-500">
             Fuente: inversoro.es · actualizado {new Date(live.fetchedAt).toLocaleTimeString("es-PE")}
           </p>
+        ) : (
+          <p className="mt-2 text-xs text-amber-700">
+            No se pudo leer el precio en vivo — se dejó el último valor guardado, cargá el de hoy a mano si hace falta.
+          </p>
         )}
-        <input type="hidden" name="gold_usd_oz" value={gold ?? ""} />
-        <input type="hidden" name="silver_usd_oz" value={silver ?? ""} />
       </div>
 
       <div className="grid grid-cols-2 gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-4">
@@ -91,7 +103,7 @@ export function PriceForm({
         <div className="col-span-full flex items-end">
           <button
             type="submit"
-            disabled={pending || gold == null}
+            disabled={pending}
             className="rounded-lg bg-navy-800 px-4 py-2 text-sm font-medium text-white hover:bg-navy-700 disabled:opacity-60"
           >
             {pending ? "Guardando..." : "Guardar snapshot del día"}
