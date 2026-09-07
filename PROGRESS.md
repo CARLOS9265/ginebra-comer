@@ -9,17 +9,28 @@ de cada paso). **Espejo remoto**: `https://github.com/CARLOS9265/ginebra-comer`
 (privado) — hasta ahora el repo solo vivía en esta máquina; se agregó como
 respaldo real y como fuente para el despliegue en Vercel.
 
-## Publicación (Vercel)
+## Publicación (Vercel) — EN VIVO
+
+**URL de producción: https://ginebra-comer.vercel.app**
 
 Proyecto conectado: **ginebra-comer** en el equipo `personallap` de Vercel,
 enlazado al repo de GitHub de arriba (rama `master`) — cada `git push` a
-`master` dispara un despliegue de producción solo. **Pendiente antes de que
-funcione de verdad**: cargar a mano en el dashboard de Vercel (Project
-Settings → Environment Variables) las mismas 3 variables que hoy solo están
-en `.env.local` de esta máquina: `NEXT_PUBLIC_SUPABASE_URL`,
-`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `GEMINI_API_KEY` — **nunca** las
-`SUPABASE_DB_*` (esas son solo para `scripts/migrate.mjs` corrido a mano en
-esta máquina, la app en producción no las necesita).
+`master` dispara un despliegue de producción solo. Las 3 variables de entorno
+(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
+`GEMINI_API_KEY`) ya están cargadas en el dashboard de Vercel (Production y
+Preview) — **nunca** cargar ahí las `SUPABASE_DB_*` (esas son solo para
+`scripts/migrate.mjs` corrido a mano en esta máquina, la app en producción no
+las necesita).
+
+**Primer despliegue falló** por un error real de TypeScript que `next dev`
+no marca pero `next build` (con type-check estricto) sí:
+`LotForm.tsx` pasaba `refPrices.gold`/`refPrices.silver` (`number | null`)
+a `fmtUSD`, que solo aceptaba `number` — el guard de arriba
+(`refPrices.gold == null && refPrices.silver == null`) solo cubre el caso de
+que AMBOS sean null, no cada uno por separado. Se arregló ensanchando
+`fmtUSD` para aceptar `number | null` (devuelve `"—"` si es null). Lección:
+correr `npm run build` (no solo confiar en `next dev`) antes de cada push a
+`master`, ya que Vercel corre el build estricto y el dev server no.
 
 **Cuidado pendiente de revisar una vez publicado:** `src/lib/live-metal-prices.ts`
 usa `execFile("curl", ...)` porque el `fetch()` nativo de Node es bloqueado por
