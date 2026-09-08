@@ -42,7 +42,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   const { data: lot } = await supabase
     .from("purchase_lots")
     .select(
-      "id, code, status, loaded_at, estimated_weight_tmh, provisional_price_per_tmh, carrier_name, truck_plate, estimated_au, estimated_ag, estimated_pb, estimated_price_au, estimated_price_ag, estimated_price_pb, providers(name, code)",
+      "id, code, status, loaded_at, estimated_weight_tmh, provisional_price_per_tmh, carrier_name, truck_plate, estimated_au, estimated_ag, estimated_pb, estimated_price_au, estimated_price_ag, estimated_price_pb, providers(id, name, code)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -61,6 +61,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
     { data: settlements },
     { data: settings },
     { data: photoDocs },
+    { data: advances },
   ] = await Promise.all([
       supabase
         .from("transport_events")
@@ -95,7 +96,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       supabase
         .from("lot_settlements")
         .select(
-          "id, tmh_used, precio_definitivo_per_tmh, precio_definitivo_total, provisional_pagado_total, saldo_pendiente, valor_py_per_tmh, costos_per_tmh, ganancia_objetivo_usd, final_invoice_number, credit_debit_note_number, notes, paid_at, created_at",
+          "id, tmh_used, precio_definitivo_per_tmh, precio_definitivo_total, provisional_pagado_total, saldo_pendiente, adelanto_aplicado_usd, valor_py_per_tmh, costos_per_tmh, ganancia_objetivo_usd, final_invoice_number, credit_debit_note_number, notes, paid_at, created_at",
         )
         .eq("purchase_lot_id", id)
         .order("created_at", { ascending: false }),
@@ -107,6 +108,9 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         .eq("entity_id", id)
         .eq("doc_type", "foto_almacen")
         .order("uploaded_at", { ascending: false }),
+      provider
+        ? supabase.from("provider_advances").select("amount_usd").eq("provider_id", provider.id)
+        : Promise.resolve({ data: [] as { amount_usd: number }[] }),
     ]);
 
   const { data: transfers } = await supabase
@@ -200,6 +204,10 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
   const previewProvisionalTotal = (lot.provisional_price_per_tmh ?? 0) * (settlementTmh ?? 0);
   const previewSaldo = settlementPreview ? settlementPreview.precioMaximoCompraTotal - previewProvisionalTotal : null;
+
+  // Saldo de adelantos pendientes de este proveedor (suma de todos sus
+  // movimientos: adelantos dados en positivo, ya aplicados en negativo).
+  const pendingAdvanceUsd = Math.max(0, (advances ?? []).reduce((sum, a) => sum + a.amount_usd, 0));
 
   const isPaid = settlement?.paid_at != null;
 
@@ -366,8 +374,17 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
                 value={fmtUSD(Math.abs(previewSaldo ?? 0), 0)}
                 strong
               />
+              {pendingAdvanceUsd > 0 && (
+                <p className="mt-2 border-t border-dashed border-slate-200 pt-2 text-xs text-gold-700">
+                  Este proveedor tiene {fmtUSD(pendingAdvanceUsd, 0)} de adelanto pendiente —{" "}
+                  <Link href="/adelantos" className="underline">
+                    ver detalle
+                  </Link>
+                  .
+                </p>
+              )}
             </div>
-            <SettlementForm lotId={lot.id} />
+            <SettlementForm lotId={lot.id} pendingAdvanceUsd={pendingAdvanceUsd} maxApplyUsd={Math.max(0, previewSaldo ?? 0)} />
           </div>
         )}
       </Section>

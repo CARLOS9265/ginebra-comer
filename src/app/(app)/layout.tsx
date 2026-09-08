@@ -42,6 +42,7 @@ const NAV_GROUPS: NavGroup[] = [
 
 const NAV_END: NavLink[] = [
   { href: "/proveedores", label: "Proveedores" },
+  { href: "/adelantos", label: "Adelantos" },
   { href: "/margenes", label: "Márgenes" },
   { href: "/precios", label: "Precios" },
   { href: "/asistente", label: "Asistente" },

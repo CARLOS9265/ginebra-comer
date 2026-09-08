@@ -462,7 +462,7 @@ export async function createSettlement(
   const { data: lot } = await supabase
     .from("purchase_lots")
     .select(
-      "estimated_weight_tmh, provisional_price_per_tmh, estimated_price_au, estimated_price_ag, estimated_price_pb",
+      "code, provider_id, estimated_weight_tmh, provisional_price_per_tmh, estimated_price_au, estimated_price_ag, estimated_price_pb",
     )
     .eq("id", lotId)
     .maybeSingle();
@@ -526,34 +526,67 @@ export async function createSettlement(
   const provisionalPagadoTotal = (lot.provisional_price_per_tmh ?? 0) * tmhUsed;
   const saldoPendiente = result.precioMaximoCompraTotal - provisionalPagadoTotal;
 
-  const { error } = await supabase.from("lot_settlements").insert({
-    purchase_lot_id: lotId,
-    lab_analysis_id: analysis.id,
-    tmh_used: tmhUsed,
-    price_au: lot.estimated_price_au,
-    price_ag: lot.estimated_price_ag,
-    price_pb: lot.estimated_price_pb,
-    au_payable_pct: result.auPagablePct,
-    ag_payable_pct: result.agPagablePct,
-    pb_payable_pct: result.pbPagableFactor,
-    valor_py_per_tmh: result.valorPYxTMH,
-    costos_per_tmh: result.costosXTMH,
-    ganancia_objetivo_usd: settings.ganancia_objetivo_usd,
-    precio_definitivo_per_tmh: result.precioMaximoCompra,
-    precio_definitivo_total: result.precioMaximoCompraTotal,
-    provisional_pagado_total: provisionalPagadoTotal,
-    saldo_pendiente: saldoPendiente,
-    final_invoice_number: str(formData, "final_invoice_number") || null,
-    credit_debit_note_number: str(formData, "credit_debit_note_number") || null,
-    notes: str(formData, "notes") || null,
-    created_by: profile.id,
-  });
+  // Adelanto a aplicar (opcional): se recalcula el saldo pendiente real del
+  // proveedor en el servidor, no se confía en lo que mandó el formulario.
+  let applyAdvanceUsd = 0;
+  const requestedApply = num(formData, "apply_advance_usd");
+  if (requestedApply != null && requestedApply > 0 && lot.provider_id) {
+    const { data: providerAdvances } = await supabase
+      .from("provider_advances")
+      .select("amount_usd")
+      .eq("provider_id", lot.provider_id);
+    const providerPendingUsd = Math.max(
+      0,
+      (providerAdvances ?? []).reduce((sum, a) => sum + a.amount_usd, 0),
+    );
+    applyAdvanceUsd = Math.min(requestedApply, providerPendingUsd, Math.max(0, saldoPendiente));
+  }
+
+  const { data: newSettlement, error } = await supabase
+    .from("lot_settlements")
+    .insert({
+      purchase_lot_id: lotId,
+      lab_analysis_id: analysis.id,
+      tmh_used: tmhUsed,
+      price_au: lot.estimated_price_au,
+      price_ag: lot.estimated_price_ag,
+      price_pb: lot.estimated_price_pb,
+      au_payable_pct: result.auPagablePct,
+      ag_payable_pct: result.agPagablePct,
+      pb_payable_pct: result.pbPagableFactor,
+      valor_py_per_tmh: result.valorPYxTMH,
+      costos_per_tmh: result.costosXTMH,
+      ganancia_objetivo_usd: settings.ganancia_objetivo_usd,
+      precio_definitivo_per_tmh: result.precioMaximoCompra,
+      precio_definitivo_total: result.precioMaximoCompraTotal,
+      provisional_pagado_total: provisionalPagadoTotal,
+      saldo_pendiente: saldoPendiente,
+      adelanto_aplicado_usd: applyAdvanceUsd,
+      final_invoice_number: str(formData, "final_invoice_number") || null,
+      credit_debit_note_number: str(formData, "credit_debit_note_number") || null,
+      notes: str(formData, "notes") || null,
+      created_by: profile.id,
+    })
+    .select("id")
+    .single();
 
   if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  if (applyAdvanceUsd > 0 && lot.provider_id) {
+    await supabase.from("provider_advances").insert({
+      provider_id: lot.provider_id,
+      amount_usd: -applyAdvanceUsd,
+      given_at: new Date().toISOString().slice(0, 10),
+      note: `Aplicado a liquidación del lote ${lot.code}`,
+      applied_lot_settlement_id: newSettlement.id,
+      created_by: profile.id,
+    });
+  }
 
   await advanceLotStatus(supabase, lotId, "valorizado", profile.id);
 
   revalidatePath(`/lotes/${lotId}`);
+  revalidatePath("/adelantos");
   return null;
 }
 
@@ -602,9 +635,16 @@ export async function deleteSettlement(lotId: string, settlementId: string) {
   }
 
   const supabase = await createClient();
+
+  // Si esta liquidación tenía un adelanto aplicado, se revierte primero (se
+  // borra la fila del descuento) para no dejar la FK colgando y para que el
+  // proveedor recupere ese saldo pendiente.
+  await supabase.from("provider_advances").delete().eq("applied_lot_settlement_id", settlementId);
+
   const { error } = await supabase.from("lot_settlements").delete().eq("id", settlementId);
   if (error) return { error: `No se pudo eliminar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
+  revalidatePath("/adelantos");
 }
 
 export async function createWarehouseTransfer(

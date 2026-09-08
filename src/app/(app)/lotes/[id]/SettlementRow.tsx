@@ -25,6 +25,7 @@ type Settlement = {
   precio_definitivo_total: number;
   provisional_pagado_total: number;
   saldo_pendiente: number;
+  adelanto_aplicado_usd: number;
   final_invoice_number: string | null;
   credit_debit_note_number: string | null;
   notes: string | null;
@@ -53,6 +54,16 @@ export function SettlementRow({ lotId, settlement }: { lotId: string; settlement
             strong
           />
         </div>
+        {settlement.adelanto_aplicado_usd > 0 && (
+          <div className="border-t border-dashed border-slate-200 pt-1">
+            <Row label="Adelanto aplicado" value={`− ${fmtUSD(settlement.adelanto_aplicado_usd, 0)}`} />
+            <Row
+              label="Neto a pagar al proveedor"
+              value={fmtUSD(Math.abs(settlement.saldo_pendiente - settlement.adelanto_aplicado_usd), 0)}
+              strong
+            />
+          </div>
+        )}
         {(settlement.final_invoice_number || settlement.credit_debit_note_number) && (
           <div className="text-xs text-slate-500">
             {settlement.final_invoice_number && `Factura final: ${settlement.final_invoice_number} · `}
