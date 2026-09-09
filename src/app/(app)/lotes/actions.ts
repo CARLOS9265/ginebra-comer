@@ -4,8 +4,55 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
+import { getLiveGoldSilver } from "@/lib/live-metal-prices";
+import { todayISO } from "@/lib/calendar";
 
 export type LotFormState = { error?: string } | null;
+
+export type DatePriceResult = {
+  gold: number | null;
+  silver: number | null;
+  lead: number | null;
+  referencePct: number;
+  isLive: boolean;
+  found: boolean;
+};
+
+// Precio de referencia para una fecha puntual (no necesariamente hoy) — para
+// el selector de fecha del formulario de lote: el pago provisional de un
+// lote debería usar el precio del día al que corresponde, no siempre "hoy".
+// Si es la fecha de hoy, se intenta el precio en vivo igual que en la carga
+// inicial del formulario; si no, se usa exclusivamente el snapshot guardado
+// para esa fecha exacta (sin caer a "el más reciente" — si no se cargó ese
+// día, se avisa en vez de mostrar un precio de otro día sin decirlo).
+export async function getPricesForDate(dateStr: string): Promise<DatePriceResult> {
+  const { profile } = await getCurrentUser();
+  if (!profile?.active) {
+    return { gold: null, silver: null, lead: null, referencePct: 40, isLive: false, found: false };
+  }
+
+  const supabase = await createClient();
+  const [{ data: snapshot }, live] = await Promise.all([
+    supabase
+      .from("daily_metal_prices")
+      .select("gold_usd_oz, silver_usd_oz, lead_usd_ton, reference_pct")
+      .eq("price_date", dateStr)
+      .maybeSingle(),
+    dateStr === todayISO() ? getLiveGoldSilver() : Promise.resolve({ gold: null, silver: null }),
+  ]);
+
+  const gold = live.gold ?? snapshot?.gold_usd_oz ?? null;
+  const silver = live.silver ?? snapshot?.silver_usd_oz ?? null;
+
+  return {
+    gold,
+    silver,
+    lead: snapshot?.lead_usd_ton ?? null,
+    referencePct: snapshot?.reference_pct ?? 40,
+    isLive: live.gold != null && live.silver != null,
+    found: snapshot != null || (live.gold != null && live.silver != null),
+  };
+}
 
 const ALLOWED_ROLES = ["operaciones", "compras", "gerencia", "administrador"];
 

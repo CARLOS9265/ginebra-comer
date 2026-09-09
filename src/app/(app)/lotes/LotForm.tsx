@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useMemo, useRef, useState } from "react";
-import { createPurchaseLot, updatePurchaseLot, type LotFormState } from "./actions";
+import { useActionState, useMemo, useRef, useState, useTransition } from "react";
+import { createPurchaseLot, updatePurchaseLot, getPricesForDate, type LotFormState } from "./actions";
 import { CARRIERS } from "@/lib/carriers";
 import { KNOWN_PLATES, carrierForPlate } from "@/lib/plates";
 import { calcProvisionalPrice } from "@/lib/provisional-price";
+import { todayISO } from "@/lib/calendar";
 
 type Provider = { id: string; code: string; name: string; concession: string | null };
 
@@ -67,22 +68,46 @@ export function LotForm({
   const [provisional, setProvisional] = useState(initialValues?.provisional_price_per_tmh ?? "");
   const carrierSelectRef = useRef<HTMLSelectElement>(null);
 
+  // Precio de referencia: arranca con el que ya vino calculado del servidor
+  // (hoy, en vivo o el último guardado), pero se puede recalcular por fecha —
+  // el pago provisional debería usar el precio del día del lote, no siempre
+  // el de "ahora mismo".
+  const [priceDate, setPriceDate] = useState(() => todayISO());
+  const [prices, setPrices] = useState(refPrices ?? null);
+  const [priceNotFound, setPriceNotFound] = useState(false);
+  const [priceLoading, startPriceTransition] = useTransition();
+
+  function handlePriceDateChange(newDate: string) {
+    setPriceDate(newDate);
+    startPriceTransition(async () => {
+      const result = await getPricesForDate(newDate);
+      setPriceNotFound(!result.found);
+      setPrices({
+        gold: result.gold,
+        silver: result.silver,
+        lead: result.lead,
+        referencePct: result.referencePct,
+        isLive: result.isLive,
+      });
+    });
+  }
+
   const suggestion = useMemo(() => {
-    if (!refPrices || refPrices.gold == null || refPrices.silver == null) return null;
+    if (!prices || prices.gold == null || prices.silver == null) return null;
     const tmhNum = Number(tmh);
     const pctNum = Number(payablePct);
     if (!tmhNum || !pctNum) return null;
     return calcProvisionalPrice({
       tmh: tmhNum,
       payablePct: pctNum,
-      goldPriceUsdOz: refPrices.gold,
-      silverPriceUsdOz: refPrices.silver,
-      leadPriceUsdTon: refPrices.lead ?? 0,
+      goldPriceUsdOz: prices.gold,
+      silverPriceUsdOz: prices.silver,
+      leadPriceUsdTon: prices.lead ?? 0,
       goldGradeGT: Number(goldGrade) || 0,
       silverGradeGT: Number(silverGrade) || 0,
       leadGradePct: Number(leadGrade) || 0,
     });
-  }, [refPrices, tmh, payablePct, goldGrade, silverGrade, leadGrade]);
+  }, [prices, tmh, payablePct, goldGrade, silverGrade, leadGrade]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.2fr_0.9fr]">
@@ -93,9 +118,9 @@ export function LotForm({
           ))}
         </datalist>
         <input type="hidden" name="provider_code" value={providerCode} />
-        {refPrices?.gold != null && <input type="hidden" name="estimated_price_au" value={refPrices.gold} />}
-        {refPrices?.silver != null && <input type="hidden" name="estimated_price_ag" value={refPrices.silver} />}
-        {refPrices?.lead != null && <input type="hidden" name="estimated_price_pb" value={refPrices.lead} />}
+        {prices?.gold != null && <input type="hidden" name="estimated_price_au" value={prices.gold} />}
+        {prices?.silver != null && <input type="hidden" name="estimated_price_ag" value={prices.silver} />}
+        {prices?.lead != null && <input type="hidden" name="estimated_price_pb" value={prices.lead} />}
 
         <Section title="Datos del lote">
           <div className="grid grid-cols-2 gap-4">
@@ -306,19 +331,41 @@ export function LotForm({
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-700">Pago provisional sugerido</h2>
-            {refPrices?.isLive && (
+            {prices?.isLive && priceDate === todayISO() && (
               <span className="flex items-center gap-1.5 text-xs text-gold-700">
                 <span className="h-1.5 w-1.5 rounded-full bg-gold-500" /> En vivo
               </span>
             )}
           </div>
-          {!refPrices || (refPrices.gold == null && refPrices.silver == null) ? (
+
+          <label className="mb-3 block">
+            <FieldLabel>Precios del día</FieldLabel>
+            <input
+              type="date"
+              value={priceDate}
+              onChange={(e) => handlePriceDateChange(e.target.value)}
+              className={inputClass}
+            />
+            <Hint>Elegí la fecha para traer el precio de oro/plata/plomo guardado ese día.</Hint>
+          </label>
+
+          {priceLoading ? (
+            <p className="text-sm text-slate-400">Buscando precio...</p>
+          ) : priceNotFound ? (
+            <p className="text-sm text-amber-700">
+              No hay precio guardado para esa fecha.{" "}
+              <a href="/precios" className="underline">
+                Cargalo en Precios
+              </a>{" "}
+              o elegí otra fecha.
+            </p>
+          ) : !prices || (prices.gold == null && prices.silver == null) ? (
             <p className="text-sm text-slate-500">No se pudo leer el precio internacional ahora mismo.</p>
           ) : (
             <div className="space-y-3 text-sm">
-              <Row label="Oro (USD/oz)" value={fmtUSD(refPrices.gold)} />
-              <Row label="Plata (USD/oz)" value={fmtUSD(refPrices.silver)} />
-              {refPrices.lead != null && <Row label="Plomo (USD/TM)" value={fmtUSD(refPrices.lead, 0)} />}
+              <Row label="Oro (USD/oz)" value={fmtUSD(prices.gold)} />
+              <Row label="Plata (USD/oz)" value={fmtUSD(prices.silver)} />
+              {prices.lead != null && <Row label="Plomo (USD/TM)" value={fmtUSD(prices.lead, 0)} />}
               <Row label="% pagable inicial" value={`${payablePct || 0}%`} />
 
               <div className="border-t border-dashed border-slate-200 pt-3">
