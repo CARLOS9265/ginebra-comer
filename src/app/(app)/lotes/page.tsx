@@ -70,6 +70,7 @@ export default async function LotsPage({
                 <th className="px-4 py-3">Carga</th>
                 <th className="px-4 py-3 text-right">TMH</th>
                 <th className="px-4 py-3 text-right">Precio prov. /TMH</th>
+                <th className="px-4 py-3 text-right">Total USD</th>
                 <th className="px-4 py-3 text-right">Total S/</th>
                 <th className="px-4 py-3 text-right">Margen proy. /TMH</th>
                 <th className="px-4 py-3">Estado</th>
@@ -79,10 +80,11 @@ export default async function LotsPage({
             <tbody className="divide-y divide-slate-800">
               {lots.map((l) => {
                 const provider = Array.isArray(l.providers) ? l.providers[0] : l.providers;
-                const totalPen =
-                  l.estimated_weight_tmh != null && l.provisional_price_per_tmh != null && tipoCambio != null
-                    ? l.estimated_weight_tmh * l.provisional_price_per_tmh * tipoCambio
+                const totalUsd =
+                  l.estimated_weight_tmh != null && l.provisional_price_per_tmh != null
+                    ? l.estimated_weight_tmh * l.provisional_price_per_tmh
                     : null;
+                const totalPen = totalUsd != null && tipoCambio != null ? totalUsd * tipoCambio : null;
                 return (
                   <tr key={l.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-mono text-slate-700">
@@ -100,6 +102,7 @@ export default async function LotsPage({
                     <td className="px-4 py-3 text-right font-mono text-slate-400">
                       {fmtUSD(l.provisional_price_per_tmh)}
                     </td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-400">{fmtUSD(totalUsd)}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-400">{fmtPEN(totalPen)}</td>
                     <td
                       className={`px-4 py-3 text-right font-mono ${
