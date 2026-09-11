@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LotRowActions } from "./LotRowActions";
 import { LotPipelineBoard } from "./LotPipelineBoard";
 import { LOT_STATUS_LABELS } from "@/lib/lot-status";
+import { MONTH_NAMES, monthParam, parseMonthParam, monthRange, shiftMonth } from "@/lib/calendar";
 
 const fmtUSD = (n: number | null) =>
   n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
@@ -10,16 +11,27 @@ const fmtUSD = (n: number | null) =>
 export default async function LotsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ creado?: string; editado?: string }>;
+  searchParams: Promise<{ creado?: string; editado?: string; month?: string }>;
 }) {
-  const { creado, editado } = await searchParams;
+  const { creado, editado, month: monthQuery } = await searchParams;
+  const { year, month } = parseMonthParam(monthQuery);
+  const { start } = monthRange(year, month);
+  const nextMonth = shiftMonth(year, month, 1);
+  const { start: nextStart } = monthRange(nextMonth.year, nextMonth.month);
+  const prevMonth = shiftMonth(year, month, -1);
+
   const supabase = await createClient();
-  const { data: lots } = await supabase
+  const { data: allLots } = await supabase
     .from("purchase_lots")
     .select(
       "id, code, loaded_at, estimated_weight_tmh, provisional_price_per_tmh, projected_margin_per_tmh, status, requires_approval, approved_at, providers(name, code)",
     )
     .order("created_at", { ascending: false });
+
+  // El tablero de arriba muestra el estado ACTUAL de todos los lotes activos
+  // (no tiene sentido "esconder" un lote que sigue en molino solo porque se
+  // cargó el mes pasado). Solo la tabla de abajo se filtra por mes de carga.
+  const lots = (allLots ?? []).filter((l) => l.loaded_at >= start && l.loaded_at < nextStart);
 
   return (
     <div>
@@ -47,11 +59,31 @@ export default async function LotsPage({
         </Link>
       </div>
 
-      {lots && lots.length > 0 && <LotPipelineBoard lots={lots} />}
+      {allLots && allLots.length > 0 && <LotPipelineBoard lots={allLots} />}
 
-      {!lots || lots.length === 0 ? (
+      <div className="mb-3 mt-8 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-700">
+          {MONTH_NAMES[month - 1]} {year}
+        </h2>
+        <div className="flex gap-2">
+          <Link
+            href={`/lotes?month=${monthParam(prevMonth.year, prevMonth.month)}`}
+            className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs text-slate-400 hover:bg-slate-100"
+          >
+            ← Anterior
+          </Link>
+          <Link
+            href={`/lotes?month=${monthParam(nextMonth.year, nextMonth.month)}`}
+            className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs text-slate-400 hover:bg-slate-100"
+          >
+            Siguiente →
+          </Link>
+        </div>
+      </div>
+
+      {lots.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-          Todavía no hay lotes registrados.
+          No hay lotes cargados en {MONTH_NAMES[month - 1].toLowerCase()} de {year}.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200">
