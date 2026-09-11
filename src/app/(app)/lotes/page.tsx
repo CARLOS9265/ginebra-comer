@@ -7,9 +7,6 @@ import { LOT_STATUS_LABELS } from "@/lib/lot-status";
 const fmtUSD = (n: number | null) =>
   n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 
-const fmtPEN = (n: number | null) =>
-  n == null ? "—" : `S/ ${n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
 export default async function LotsPage({
   searchParams,
 }: {
@@ -17,16 +14,12 @@ export default async function LotsPage({
 }) {
   const { creado, editado } = await searchParams;
   const supabase = await createClient();
-  const [{ data: lots }, { data: settings }] = await Promise.all([
-    supabase
-      .from("purchase_lots")
-      .select(
-        "id, code, loaded_at, estimated_weight_tmh, provisional_price_per_tmh, projected_margin_per_tmh, status, requires_approval, approved_at, providers(name, code)",
-      )
-      .order("created_at", { ascending: false }),
-    supabase.from("contract_settings").select("tipo_cambio").eq("id", 1).maybeSingle(),
-  ]);
-  const tipoCambio = settings?.tipo_cambio ?? null;
+  const { data: lots } = await supabase
+    .from("purchase_lots")
+    .select(
+      "id, code, loaded_at, estimated_weight_tmh, provisional_price_per_tmh, projected_margin_per_tmh, status, requires_approval, approved_at, providers(name, code)",
+    )
+    .order("created_at", { ascending: false });
 
   return (
     <div>
@@ -71,7 +64,6 @@ export default async function LotsPage({
                 <th className="px-4 py-3 text-right">TMH</th>
                 <th className="px-4 py-3 text-right">Precio prov. /TMH</th>
                 <th className="px-4 py-3 text-right">Total USD</th>
-                <th className="px-4 py-3 text-right">Total S/</th>
                 <th className="px-4 py-3 text-right">Margen proy. /TMH</th>
                 <th className="px-4 py-3">Estado</th>
                 <th className="px-4 py-3">Acciones</th>
@@ -84,7 +76,6 @@ export default async function LotsPage({
                   l.estimated_weight_tmh != null && l.provisional_price_per_tmh != null
                     ? l.estimated_weight_tmh * l.provisional_price_per_tmh
                     : null;
-                const totalPen = totalUsd != null && tipoCambio != null ? totalUsd * tipoCambio : null;
                 return (
                   <tr key={l.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-mono text-slate-700">
@@ -103,7 +94,6 @@ export default async function LotsPage({
                       {fmtUSD(l.provisional_price_per_tmh)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-slate-400">{fmtUSD(totalUsd)}</td>
-                    <td className="px-4 py-3 text-right font-mono text-slate-400">{fmtPEN(totalPen)}</td>
                     <td
                       className={`px-4 py-3 text-right font-mono ${
                         (l.projected_margin_per_tmh ?? 0) >= 0 ? "text-gold-700" : "text-red-600"
