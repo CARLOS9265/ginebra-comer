@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
+import { LOT_CODE_PREFIX, buildLotCode } from "@/lib/lot-code";
 
 export type ScheduleFormState = { error?: string } | null;
 
@@ -124,25 +125,23 @@ async function createPurchaseLotForSchedule(
 ): Promise<string | null> {
   const { data: item } = await supabase
     .from("truck_schedule")
-    .select("type, purchase_lot_id, provider_id, scheduled_date, scheduled_time, truck_plate, carrier_name, providers(code)")
+    .select("type, purchase_lot_id, provider_id, scheduled_date, scheduled_time, truck_plate, carrier_name")
     .eq("id", scheduleId)
     .maybeSingle();
 
   if (!item || item.type !== "compra" || item.purchase_lot_id || !item.provider_id) return null;
 
-  const provider = Array.isArray(item.providers) ? item.providers[0] : item.providers;
-  if (!provider?.code) return null;
-
   const loadedAt = new Date(`${item.scheduled_date}T${item.scheduled_time ?? "00:00"}`);
   const year = loadedAt.getFullYear();
 
+  // Correlativo único de Ginebra, compartido entre todos los proveedores.
   const { data: seq, error: seqError } = await supabase.rpc("next_lot_seq", {
-    p_provider_code: provider.code,
+    p_provider_code: LOT_CODE_PREFIX,
     p_year: year,
   });
   if (seqError || seq == null) return null;
 
-  const code = `${provider.code}-${String(year).slice(-2)}-${String(seq).padStart(2, "0")}`;
+  const code = buildLotCode(year, seq);
 
   const { data: lot, error: insertError } = await supabase
     .from("purchase_lots")

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getLiveGoldSilver } from "@/lib/live-metal-prices";
 import { todayISO } from "@/lib/calendar";
+import { LOT_CODE_PREFIX, buildLotCode } from "@/lib/lot-code";
 
 export type LotFormState = { error?: string } | null;
 
@@ -102,27 +103,28 @@ export async function createPurchaseLot(
   }
 
   const providerId = str(formData, "provider_id");
-  const providerCode = str(formData, "provider_code");
   const loadedAt = str(formData, "loaded_at");
 
   const supabase = await createClient();
   const { tmh, precioProvisional, fields } = buildLotFields(formData, profile.id);
 
-  if (!providerId || !providerCode || !loadedAt || !tmh || precioProvisional == null) {
+  if (!providerId || !loadedAt || !tmh || precioProvisional == null) {
     return {
       error: "Completá proveedor, fecha/hora de carga, peso estimado y precio provisional.",
     };
   }
 
+  // Correlativo único de Ginebra, compartido entre todos los proveedores (no
+  // se diferencia por empresa) — a pedido del usuario.
   const year = new Date(loadedAt).getFullYear();
   const { data: seq, error: seqError } = await supabase.rpc("next_lot_seq", {
-    p_provider_code: providerCode,
+    p_provider_code: LOT_CODE_PREFIX,
     p_year: year,
   });
   if (seqError || seq == null) {
     return { error: "No se pudo generar el código del lote. Probá de nuevo." };
   }
-  const code = `${providerCode}-${String(year).slice(-2)}-${String(seq).padStart(2, "0")}`;
+  const code = buildLotCode(year, seq);
 
   const { data: lot, error: insertError } = await supabase
     .from("purchase_lots")

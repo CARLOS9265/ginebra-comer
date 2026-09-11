@@ -56,7 +56,6 @@ export function LotForm({
   const [state, action, pending] = useActionState<LotFormState, FormData>(boundAction, null);
 
   const [providerId, setProviderId] = useState(initialValues?.provider_id ?? providers[0]?.id ?? "");
-  const providerCode = providers.find((p) => p.id === providerId)?.code ?? "";
   const [concession, setConcession] = useState(
     initialValues?.concession || providers.find((p) => p.id === providerId)?.concession || "",
   );
@@ -117,7 +116,6 @@ export function LotForm({
             <option key={p} value={p} />
           ))}
         </datalist>
-        <input type="hidden" name="provider_code" value={providerCode} />
         {prices?.gold != null && <input type="hidden" name="estimated_price_au" value={prices.gold} />}
         {prices?.silver != null && <input type="hidden" name="estimated_price_ag" value={prices.silver} />}
         {prices?.lead != null && <input type="hidden" name="estimated_price_pb" value={prices.lead} />}
