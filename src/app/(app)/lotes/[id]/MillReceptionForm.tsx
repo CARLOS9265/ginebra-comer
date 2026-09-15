@@ -7,7 +7,7 @@ function toLocalInputValue(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 type InitialValues = {
@@ -40,10 +40,10 @@ export function MillReceptionForm({
     <form action={action} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Fecha y hora de recepción</span>
+          <span className="mb-1.5 block text-xs font-medium text-slate-500">Fecha de recepción</span>
           <input
             name="received_at"
-            type="datetime-local"
+            type="date"
             defaultValue={toLocalInputValue(initialValues?.received_at ?? null)}
             className={inputClass}
           />

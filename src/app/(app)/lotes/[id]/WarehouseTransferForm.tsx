@@ -9,7 +9,7 @@ function toLocalInputValue(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 type InitialValues = {
@@ -94,7 +94,7 @@ export function WarehouseTransferForm({
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Salida del molino</span>
           <input
             name="departed_at"
-            type="datetime-local"
+            type="date"
             defaultValue={toLocalInputValue(initialValues?.departed_at ?? null)}
             className={inputClass}
           />
@@ -103,7 +103,7 @@ export function WarehouseTransferForm({
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Descarga en almacén</span>
           <input
             name="arrived_at"
-            type="datetime-local"
+            type="date"
             defaultValue={toLocalInputValue(initialValues?.arrived_at ?? null)}
             className={inputClass}
           />

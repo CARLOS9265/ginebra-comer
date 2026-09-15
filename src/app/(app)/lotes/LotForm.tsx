@@ -13,7 +13,7 @@ export type LotInitialValues = {
   code: string;
   provider_id: string;
   concession: string;
-  loaded_at_local: string; // yyyy-MM-ddTHH:mm
+  loaded_at_local: string; // yyyy-MM-dd
   truck_plate: string;
   carrier_name: string;
   estimated_weight_tmh: string;
@@ -159,10 +159,10 @@ export function LotForm({
               <Hint>Se completa sola según el proveedor elegido; se puede ajustar acá.</Hint>
             </label>
             <label className="block">
-              <FieldLabel>Fecha y hora de carga</FieldLabel>
+              <FieldLabel>Fecha de carga</FieldLabel>
               <input
                 name="loaded_at"
-                type="datetime-local"
+                type="date"
                 required
                 defaultValue={initialValues?.loaded_at_local}
                 className={inputClass}

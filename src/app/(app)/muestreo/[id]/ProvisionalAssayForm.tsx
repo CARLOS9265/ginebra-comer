@@ -7,7 +7,7 @@ function toLocalInputValue(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 type InitialValues = {
@@ -53,7 +53,7 @@ export function ProvisionalAssayForm({
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Fecha de muestreo</span>
           <input
             name="prov_sampled_at"
-            type="datetime-local"
+            type="date"
             defaultValue={toLocalInputValue(initialValues?.prov_sampled_at ?? null)}
             className={inputClass}
           />

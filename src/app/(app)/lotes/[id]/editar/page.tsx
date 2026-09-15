@@ -7,7 +7,7 @@ import { LotForm, type LotInitialValues, type ReferencePrices } from "../../LotF
 function toLocalInput(iso: string): string {
   const d = new Date(iso);
   const tz = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 16);
+  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
 }
 
 function s(v: number | string | null): string {

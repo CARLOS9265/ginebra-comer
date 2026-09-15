@@ -9,7 +9,7 @@ function toLocalInputValue(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 type InitialValues = {
@@ -48,10 +48,10 @@ export function DispatchForm({
       </datalist>
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Fecha y hora de salida</span>
+          <span className="mb-1.5 block text-xs font-medium text-slate-500">Fecha de salida</span>
           <input
             name="dispatched_at"
-            type="datetime-local"
+            type="date"
             defaultValue={toLocalInputValue(initialValues?.dispatched_at ?? null)}
             className={inputClass}
           />

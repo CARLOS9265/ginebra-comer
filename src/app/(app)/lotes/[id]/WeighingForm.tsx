@@ -13,7 +13,7 @@ function toLocalInputValue(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 type InitialValues = {
@@ -73,10 +73,10 @@ export function WeighingForm({
           <input name="ticket_number" defaultValue={initialValues?.ticket_number ?? ""} className={inputClass} />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Fecha y hora</span>
+          <span className="mb-1.5 block text-xs font-medium text-slate-500">Fecha</span>
           <input
             name="weighed_at"
-            type="datetime-local"
+            type="date"
             defaultValue={toLocalInputValue(initialValues?.weighed_at ?? null)}
             className={inputClass}
           />
