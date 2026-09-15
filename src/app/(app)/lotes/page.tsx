@@ -24,7 +24,7 @@ export default async function LotsPage({
   const { data: allLots } = await supabase
     .from("purchase_lots")
     .select(
-      "id, code, loaded_at, estimated_weight_tmh, provisional_price_per_tmh, projected_margin_per_tmh, status, requires_approval, approved_at, providers(name, code)",
+      "id, code, loaded_at, truck_plate, estimated_weight_tmh, provisional_price_per_tmh, projected_margin_per_tmh, status, requires_approval, approved_at, providers(name, code)",
     )
     .order("created_at", { ascending: false });
 
@@ -92,6 +92,7 @@ export default async function LotsPage({
               <tr>
                 <th className="px-4 py-3">Código</th>
                 <th className="px-4 py-3">Proveedor</th>
+                <th className="px-4 py-3">Placa</th>
                 <th className="px-4 py-3">Carga</th>
                 <th className="px-4 py-3 text-right">TMH</th>
                 <th className="px-4 py-3 text-right">Precio prov. /TMH</th>
@@ -116,6 +117,7 @@ export default async function LotsPage({
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-slate-400">{provider?.name ?? "—"}</td>
+                    <td className="px-4 py-3 font-mono text-slate-500">{l.truck_plate ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-500">
                       {new Date(l.loaded_at).toLocaleDateString("es-PE")}
                     </td>
