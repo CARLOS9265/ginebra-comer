@@ -35,10 +35,6 @@ export function MillReceptionRow({ lotId, reception }: { lotId: string; receptio
         <div>
           {reception.supervisor_name ?? "Supervisor sin datos"} · {fmtDate(reception.received_at) ?? "Sin fecha"}
         </div>
-        {reception.storage_location && (
-          <div className="text-xs text-slate-500">Ubicación: {reception.storage_location}</div>
-        )}
-        {reception.incidents && <div className="text-xs text-amber-700">Incidente: {reception.incidents}</div>}
       </div>
       <div className="flex items-center gap-3">
         <button onClick={() => setEditing(true)} className="text-xs text-gold-700 hover:underline">

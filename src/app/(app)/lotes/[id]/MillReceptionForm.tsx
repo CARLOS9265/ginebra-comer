@@ -54,23 +54,6 @@ export function MillReceptionForm({
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Supervisor que recibe</span>
           <input name="supervisor_name" defaultValue={initialValues?.supervisor_name ?? ""} className={inputClass} />
         </label>
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Ubicación de almacenamiento</span>
-          <input
-            name="storage_location"
-            defaultValue={initialValues?.storage_location ?? ""}
-            className={inputClass}
-          />
-        </label>
-        <label className="col-span-2 block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Incidentes</span>
-          <textarea
-            name="incidents"
-            rows={2}
-            defaultValue={initialValues?.incidents ?? ""}
-            className={`${inputClass} resize-none`}
-          />
-        </label>
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       <div className="flex items-center gap-3">
