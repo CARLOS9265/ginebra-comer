@@ -13,8 +13,6 @@ function toLocalInputValue(iso: string | null): string {
 type InitialValues = {
   received_at: string | null;
   supervisor_name: string | null;
-  storage_location: string | null;
-  incidents: string | null;
 };
 
 export function MillReceptionForm({

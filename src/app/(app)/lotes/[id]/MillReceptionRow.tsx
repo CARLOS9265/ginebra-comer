@@ -11,8 +11,6 @@ type Reception = {
   id: string;
   received_at: string | null;
   supervisor_name: string | null;
-  storage_location: string | null;
-  incidents: string | null;
 };
 
 export function MillReceptionRow({ lotId, reception }: { lotId: string; reception: Reception }) {

@@ -77,14 +77,12 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       supabase.from("seals").select("id, code, status").eq("purchase_lot_id", id).order("code"),
       supabase
         .from("mill_receptions")
-        .select("id, received_at, supervisor_name, storage_location, incidents")
+        .select("id, received_at, supervisor_name")
         .eq("purchase_lot_id", id)
         .order("created_at", { ascending: false }),
       supabase
         .from("comminutions")
-        .select(
-          "id, started_at, finished_at, processed_tons, mill_invoice_number, tariff_pen_per_ton, bag_count",
-        )
+        .select("id, processed_tons, tariff_pen_per_ton, bag_count")
         .eq("purchase_lot_id", id)
         .order("created_at", { ascending: false }),
       supabase

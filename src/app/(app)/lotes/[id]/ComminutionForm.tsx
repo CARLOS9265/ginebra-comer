@@ -3,18 +3,8 @@
 import { useActionState, useEffect, useRef } from "react";
 import { createComminution, updateComminution, type LogisticsFormState } from "./actions";
 
-function toLocalInputValue(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 type InitialValues = {
-  started_at: string | null;
-  finished_at: string | null;
   processed_tons: number | null;
-  mill_invoice_number: string | null;
   tariff_pen_per_ton: number | null;
   bag_count: number | null;
 };
@@ -46,24 +36,6 @@ export function ComminutionForm({
     <form action={action} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Inicio</span>
-          <input
-            name="started_at"
-            type="datetime-local"
-            defaultValue={toLocalInputValue(initialValues?.started_at ?? null)}
-            className={inputClass}
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Fin</span>
-          <input
-            name="finished_at"
-            type="datetime-local"
-            defaultValue={toLocalInputValue(initialValues?.finished_at ?? null)}
-            className={inputClass}
-          />
-        </label>
-        <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Toneladas procesadas (según molino)</span>
           <input
             name="processed_tons"
@@ -73,14 +45,6 @@ export function ComminutionForm({
             className={inputClass}
           />
           {officialWeightHint && <span className="mt-1 block text-xs text-slate-400">{officialWeightHint}</span>}
-        </label>
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">N° de factura del molino</span>
-          <input
-            name="mill_invoice_number"
-            defaultValue={initialValues?.mill_invoice_number ?? ""}
-            className={inputClass}
-          />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Tarifa (S/ por tonelada)</span>

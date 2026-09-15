@@ -5,14 +5,9 @@ import { DeleteRowButton } from "@/components/DeleteRowButton";
 import { deleteComminution } from "./actions";
 import { ComminutionForm } from "./ComminutionForm";
 
-const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("es-PE") : null);
-
 type Comminution = {
   id: string;
-  started_at: string | null;
-  finished_at: string | null;
   processed_tons: number | null;
-  mill_invoice_number: string | null;
   tariff_pen_per_ton: number | null;
   bag_count: number | null;
 };
@@ -44,13 +39,8 @@ export function ComminutionRow({
     <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
       <div className="space-y-0.5 text-slate-400">
         <div>
-          {fmtDate(comminution.started_at) ?? "Sin fecha de inicio"}
-          {comminution.finished_at && ` → ${fmtDate(comminution.finished_at)}`}
-        </div>
-        <div className="text-xs text-slate-500">
           {comminution.processed_tons != null && `Procesado (molino): ${comminution.processed_tons} TM · `}
           {comminution.tariff_pen_per_ton != null && `Tarifa S/ ${comminution.tariff_pen_per_ton}/TM`}
-          {comminution.mill_invoice_number && ` · Factura ${comminution.mill_invoice_number}`}
         </div>
         <div className="text-xs text-slate-500">
           {comminution.bag_count != null
