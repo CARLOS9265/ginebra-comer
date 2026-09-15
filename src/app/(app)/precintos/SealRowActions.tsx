@@ -3,11 +3,11 @@
 import { useState, useTransition } from "react";
 import { verifySeal, openSeal, voidSeal, deleteSeal, assignSealToLot } from "./actions";
 
-type Lot = { id: string; code: string; truck_plate: string | null };
+type Lot = { id: string; code: string; dispatch_truck_plate: string | null };
 type ActionResult = { error?: string } | null | void;
 
 function lotLabel(l: Lot) {
-  return l.truck_plate ? `${l.truck_plate} — ${l.code}` : l.code;
+  return l.dispatch_truck_plate ? `${l.dispatch_truck_plate} — ${l.code}` : l.code;
 }
 
 export function SealRowActions({ id, status, lots }: { id: string; status: string; lots: Lot[] }) {

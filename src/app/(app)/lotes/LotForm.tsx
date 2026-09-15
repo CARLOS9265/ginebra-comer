@@ -217,17 +217,6 @@ export function LotForm({
             </label>
             <TextField label="Número de guía inicial" name="initial_guide_number" required={false} defaultValue={initialValues?.initial_guide_number} />
             <TextField label="Número de factura inicial" name="initial_invoice_number" required={false} defaultValue={initialValues?.initial_invoice_number} />
-            {mode === "create" && (
-              <label className="col-span-2 block">
-                <FieldLabel>Precintos colocados</FieldLabel>
-                <textarea
-                  name="seals"
-                  rows={2}
-                  placeholder="Uno por línea o separados por coma"
-                  className={`${inputClass} resize-none`}
-                />
-              </label>
-            )}
           </div>
         </Section>
 

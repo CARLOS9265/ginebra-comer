@@ -24,14 +24,6 @@ import { ActionButton } from "@/components/ActionButton";
 import { deleteWarehousePhoto, markSettlementPaid, closeLot } from "./actions";
 import { estimateLot, type ContractSettings } from "@/lib/contract";
 
-const SEAL_STATUS_LABELS: Record<string, string> = {
-  disponible: "Disponible",
-  colocado: "Colocado",
-  verificado: "Verificado",
-  abierto: "Abierto",
-  anulado: "Anulado",
-};
-
 const fmtTon = (n: number | null) =>
   n == null ? "—" : `${(n / 1000).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TM`;
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("es-PE") : null);
@@ -55,7 +47,6 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   const [
     { data: events },
     { data: weighings },
-    { data: seals },
     { data: receptions },
     { data: comminutions },
     { data: labAnalyses },
@@ -74,7 +65,6 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         .select("id, type, net_weight, ticket_number, weighed_at, reason")
         .eq("purchase_lot_id", id)
         .order("weighed_at", { ascending: true }),
-      supabase.from("seals").select("id, code, status").eq("purchase_lot_id", id).order("code"),
       supabase
         .from("mill_receptions")
         .select("id, received_at, supervisor_name")
@@ -248,26 +238,6 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
           </div>
         </div>
       </div>
-
-      <Section title="Precintos">
-        {!seals || seals.length === 0 ? (
-          <p className="text-sm text-slate-500">No hay precintos asignados a este lote todavía.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {seals.map((s) => (
-              <span
-                key={s.id}
-                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-mono text-slate-400"
-              >
-                {s.code} · {SEAL_STATUS_LABELS[s.status] ?? s.status}
-              </span>
-            ))}
-          </div>
-        )}
-        <Link href="/precintos" className="mt-3 inline-block text-xs text-gold-700 hover:underline">
-          Gestionar precintos →
-        </Link>
-      </Section>
 
       <Section title="Transporte">
         {events && events.length > 0 && (

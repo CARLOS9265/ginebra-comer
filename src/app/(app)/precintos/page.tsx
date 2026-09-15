@@ -31,7 +31,7 @@ export default async function SealsPage({
 
   let query = supabase
     .from("seals")
-    .select("id, code, status, opened_reason, updated_at, purchase_lots(code)")
+    .select("id, code, status, opened_reason, updated_at, sale_lots(code)")
     .order("updated_at", { ascending: false });
 
   if (estado && estado !== "todos") {
@@ -40,20 +40,23 @@ export default async function SealsPage({
 
   const { data: seals } = await query;
 
+  // Lotes de venta todavía "abiertos" para colocar/verificar precintos —
+  // una vez recibido en PY (o después) el precinto ya se abrió, no tiene
+  // sentido ofrecerlo para asignar uno nuevo.
   const { data: openLots } = await supabase
-    .from("purchase_lots")
-    .select("id, code, truck_plate")
-    .neq("status", "cerrado")
+    .from("sale_lots")
+    .select("id, code, dispatch_truck_plate")
+    .in("status", ["armado", "despachado"])
     .order("code");
 
-  // Al colocar precintos normalmente se sabe qué placa es el volquete, no el código
-  // del lote (que a veces todavía ni se cargó) — por eso el selector se ordena y
-  // muestra por placa primero, para poder ubicar el lote reconociendo la placa.
+  // Al colocar precintos normalmente se sabe qué placa es el trailer, no el código
+  // del lote — por eso el selector se ordena y muestra por placa primero, para
+  // poder ubicar el lote reconociendo la placa.
   const lots = [...(openLots ?? [])].sort((a, b) => {
-    if (!a.truck_plate && !b.truck_plate) return a.code.localeCompare(b.code);
-    if (!a.truck_plate) return 1;
-    if (!b.truck_plate) return -1;
-    return a.truck_plate.localeCompare(b.truck_plate);
+    if (!a.dispatch_truck_plate && !b.dispatch_truck_plate) return a.code.localeCompare(b.code);
+    if (!a.dispatch_truck_plate) return 1;
+    if (!b.dispatch_truck_plate) return -1;
+    return a.dispatch_truck_plate.localeCompare(b.dispatch_truck_plate);
   });
 
   return (
@@ -61,8 +64,8 @@ export default async function SealsPage({
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-slate-900">Precintos</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Control documental: colocación, verificación previa a la salida del volquete y apertura
-          en molino.
+          Control documental: colocación, verificación previa a la salida hacia Lima y apertura en
+          la recepción de PY.
         </p>
       </div>
 
@@ -103,7 +106,7 @@ export default async function SealsPage({
             </thead>
             <tbody className="divide-y divide-slate-800">
               {seals.map((s) => {
-                const lot = Array.isArray(s.purchase_lots) ? s.purchase_lots[0] : s.purchase_lots;
+                const lot = Array.isArray(s.sale_lots) ? s.sale_lots[0] : s.sale_lots;
                 return (
                   <tr key={s.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-mono text-slate-700">{s.code}</td>

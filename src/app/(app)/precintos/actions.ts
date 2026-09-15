@@ -6,8 +6,8 @@ import { getCurrentUser } from "@/lib/auth";
 
 export type SealFormState = { error?: string } | null;
 
-// Debe coincidir con las políticas RLS de `seals` en 0001_init.sql.
-const ALLOWED_ROLES = ["operaciones", "calidad", "gerencia", "administrador"];
+// Debe coincidir con las políticas RLS de `seals` en 0021_seals_for_venta.sql.
+const ALLOWED_ROLES = ["operaciones", "comercial", "gerencia", "administrador"];
 
 function str(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -23,13 +23,13 @@ export async function createSeal(
   }
 
   const code = str(formData, "code").toUpperCase();
-  const lotId = str(formData, "purchase_lot_id") || null;
+  const lotId = str(formData, "sale_lot_id") || null;
   if (!code) return { error: "Ingresá el código del precinto." };
 
   const supabase = await createClient();
   const { error } = await supabase.from("seals").insert({
     code,
-    purchase_lot_id: lotId,
+    sale_lot_id: lotId,
     status: lotId ? "colocado" : "disponible",
     updated_by: profile.id,
   });
@@ -55,7 +55,7 @@ export async function assignSealToLot(sealId: string, lotId: string) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("seals")
-    .update({ purchase_lot_id: lotId, status: "colocado", updated_by: profile.id })
+    .update({ sale_lot_id: lotId, status: "colocado", updated_by: profile.id })
     .eq("id", sealId)
     .eq("status", "disponible");
 

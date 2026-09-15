@@ -142,28 +142,6 @@ export async function createPurchaseLot(
     return { error: `No se pudo guardar el lote: ${insertError?.message ?? "error desconocido"}` };
   }
 
-  const sealsRaw = str(formData, "seals");
-  const sealCodes = sealsRaw
-    .split(/[\n,]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  if (sealCodes.length > 0) {
-    const { error: sealsError } = await supabase.from("seals").insert(
-      sealCodes.map((code) => ({
-        code,
-        purchase_lot_id: lot.id,
-        status: "colocado",
-        updated_by: profile.id,
-      })),
-    );
-    if (sealsError) {
-      return {
-        error: `El lote ${code} se guardó, pero hubo un error con los precintos: ${sealsError.message}`,
-      };
-    }
-  }
-
   redirect(`/lotes?creado=${code}`);
 }
 
@@ -217,7 +195,6 @@ export async function deletePurchaseLot(lotId: string) {
     .maybeSingle();
   if (!lot || lot.status !== "creado") return;
 
-  await supabase.from("seals").delete().eq("purchase_lot_id", lotId);
   await supabase.from("purchase_lots").delete().eq("id", lotId);
 
   revalidatePath("/lotes");

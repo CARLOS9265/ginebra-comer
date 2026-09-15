@@ -21,7 +21,6 @@ const NAV_GROUPS: NavGroup[] = [
     accent: "amber",
     links: [
       { href: "/lotes", label: "Lotes de compra" },
-      { href: "/precintos", label: "Precintos" },
       { href: "/big-bags", label: "Bolsones" },
     ],
   },
@@ -35,6 +34,7 @@ const NAV_GROUPS: NavGroup[] = [
     accent: "sky",
     links: [
       { href: "/ventas", label: "Ventas a PY" },
+      { href: "/precintos", label: "Precintos" },
       { href: "/muestreo", label: "Muestreo PY" },
     ],
   },
