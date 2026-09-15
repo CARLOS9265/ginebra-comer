@@ -1,13 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { LOT_STATUS_LABELS } from "@/lib/lot-status";
+import { LOT_STATUS_LABELS, LOT_STATUS_ORDER } from "@/lib/lot-status";
 import { TransportForm } from "./TransportForm";
 import { TransportEventRow } from "./TransportEventRow";
 import { WeighingForm } from "./WeighingForm";
 import { WeighingRow } from "./WeighingRow";
-import { MillReceptionForm } from "./MillReceptionForm";
-import { MillReceptionRow } from "./MillReceptionRow";
 import { ComminutionForm } from "./ComminutionForm";
 import { ComminutionRow } from "./ComminutionRow";
 import { LabAnalysisForm } from "./LabAnalysisForm";
@@ -21,7 +19,7 @@ import { HuanchacoWeighingForm } from "./HuanchacoWeighingForm";
 import { HuanchacoWeighingRow } from "./HuanchacoWeighingRow";
 import { DeleteRowButton } from "@/components/DeleteRowButton";
 import { ActionButton } from "@/components/ActionButton";
-import { deleteWarehousePhoto, markSettlementPaid, closeLot } from "./actions";
+import { deleteWarehousePhoto, markSettlementPaid, closeLot, markReceivedAtMill } from "./actions";
 import { estimateLot, type ContractSettings } from "@/lib/contract";
 
 const fmtTon = (n: number | null) =>
@@ -47,7 +45,6 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   const [
     { data: events },
     { data: weighings },
-    { data: receptions },
     { data: comminutions },
     { data: labAnalyses },
     { data: settlements },
@@ -65,11 +62,6 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         .select("id, type, net_weight, ticket_number, weighed_at, reason")
         .eq("purchase_lot_id", id)
         .order("weighed_at", { ascending: true }),
-      supabase
-        .from("mill_receptions")
-        .select("id, received_at, supervisor_name")
-        .eq("purchase_lot_id", id)
-        .order("created_at", { ascending: false }),
       supabase
         .from("comminutions")
         .select("id, processed_tons, tariff_pen_per_ton, bag_count")
@@ -118,8 +110,9 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       ? Number((oficial.net_weight - inicial.net_weight).toFixed(2))
       : null;
 
-  const reception = receptions?.[0];
   const comminution = comminutions?.[0];
+  const receivedAtMill = LOT_STATUS_ORDER.indexOf(lot.status as (typeof LOT_STATUS_ORDER)[number]) >=
+    LOT_STATUS_ORDER.indexOf("recibido_molino");
 
   const { data: ticketDocs } =
     weighings && weighings.length > 0
@@ -281,10 +274,10 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       </Section>
 
       <Section title="Recepción en molino">
-        {reception ? (
-          <MillReceptionRow lotId={lot.id} reception={reception} />
+        {receivedAtMill ? (
+          <p className="text-sm text-gold-700">✓ Recibido en molino</p>
         ) : (
-          <MillReceptionForm lotId={lot.id} />
+          <ActionButton action={() => markReceivedAtMill(lot.id)} label="Marcar como recibido en molino" />
         )}
       </Section>
 

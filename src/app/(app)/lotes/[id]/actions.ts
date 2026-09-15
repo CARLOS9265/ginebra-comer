@@ -207,71 +207,21 @@ export async function deleteWeighing(lotId: string, weighingId: string) {
   revalidatePath(`/lotes/${lotId}`);
 }
 
-export async function createMillReception(
-  lotId: string,
-  _prevState: LogisticsFormState,
-  formData: FormData,
-): Promise<LogisticsFormState> {
+// Reemplaza el formulario de "Recepción en molino" (fecha + supervisor) que
+// el usuario pidió sacar — pero esta seguía siendo la única acción que
+// avanza el lote a "recibido_molino" (la columna "En el molino" del tablero
+// de /lotes), así que se mantiene ese único paso como un botón simple, sin
+// campos, en vez de borrar la etapa del pipeline entero.
+export async function markReceivedAtMill(lotId: string) {
   const { profile } = await getCurrentUser();
   if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
     return { error: "Tu rol no puede registrar la recepción en molino." };
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("mill_receptions").insert({
-    purchase_lot_id: lotId,
-    received_at: str(formData, "received_at") ? new Date(str(formData, "received_at")).toISOString() : null,
-    supervisor_name: str(formData, "supervisor_name") || null,
-    storage_location: str(formData, "storage_location") || null,
-    incidents: str(formData, "incidents") || null,
-    created_by: profile.id,
-  });
-
-  if (error) return { error: `No se pudo guardar: ${error.message}` };
-
   await advanceLotStatus(supabase, lotId, "recibido_molino", profile.id);
-
   revalidatePath(`/lotes/${lotId}`);
-  return null;
-}
-
-export async function updateMillReception(
-  lotId: string,
-  receptionId: string,
-  _prevState: LogisticsFormState,
-  formData: FormData,
-): Promise<LogisticsFormState> {
-  const { profile } = await getCurrentUser();
-  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
-    return { error: "Tu rol no puede editar este registro." };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("mill_receptions")
-    .update({
-      received_at: str(formData, "received_at") ? new Date(str(formData, "received_at")).toISOString() : null,
-      supervisor_name: str(formData, "supervisor_name") || null,
-      storage_location: str(formData, "storage_location") || null,
-      incidents: str(formData, "incidents") || null,
-    })
-    .eq("id", receptionId);
-
-  if (error) return { error: `No se pudo guardar: ${error.message}` };
-  revalidatePath(`/lotes/${lotId}`);
-  return null;
-}
-
-export async function deleteMillReception(lotId: string, receptionId: string) {
-  const { profile } = await getCurrentUser();
-  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
-    return { error: "Tu rol no puede eliminar este registro." };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("mill_receptions").delete().eq("id", receptionId);
-  if (error) return { error: `No se pudo eliminar: ${error.message}` };
-  revalidatePath(`/lotes/${lotId}`);
+  revalidatePath("/lotes");
 }
 
 export async function createComminution(
