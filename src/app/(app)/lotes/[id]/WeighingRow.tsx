@@ -12,7 +12,8 @@ const WEIGHING_TYPE_LABELS: Record<string, string> = {
   regularizacion: "Regularización",
 };
 
-const fmtKg = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("es-PE")} kg`);
+const fmtTon = (n: number | null) =>
+  n == null ? "—" : `${(n / 1000).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TM`;
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("es-PE") : null);
 
 type Weighing = {
@@ -46,7 +47,7 @@ export function WeighingRow({
           <div className="space-y-0.5 text-slate-400">
             <div className="font-medium">{WEIGHING_TYPE_LABELS[weighing.type] ?? weighing.type}</div>
             <div className="text-xs text-slate-500">
-              Neto {fmtKg(weighing.net_weight)}
+              Neto {fmtTon(weighing.net_weight)}
               {weighing.ticket_number && ` · Ticket ${weighing.ticket_number}`}
               {weighing.weighed_at && ` · ${fmtDate(weighing.weighed_at)}`}
             </div>

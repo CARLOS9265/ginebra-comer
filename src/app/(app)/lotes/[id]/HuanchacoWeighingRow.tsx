@@ -5,7 +5,8 @@ import { DeleteRowButton } from "@/components/DeleteRowButton";
 import { deleteWeighing } from "./actions";
 import { HuanchacoWeighingForm } from "./HuanchacoWeighingForm";
 
-const fmtKg = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("es-PE")} kg`);
+const fmtTon = (n: number | null) =>
+  n == null ? "—" : `${(n / 1000).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TM`;
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("es-PE") : null);
 
 type Weighing = { id: string; net_weight: number | null; ticket_number: string | null; weighed_at: string | null };
@@ -22,7 +23,7 @@ export function HuanchacoWeighingRow({ lotId, weighing }: { lotId: string; weigh
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
       <div className="text-slate-400">
-        Pesaje Huanchaco: {fmtKg(weighing.net_weight)}
+        Pesaje Huanchaco: {fmtTon(weighing.net_weight)}
         {weighing.ticket_number && ` · Ticket ${weighing.ticket_number}`}
         {weighing.weighed_at && ` · ${fmtDate(weighing.weighed_at)}`}
       </div>

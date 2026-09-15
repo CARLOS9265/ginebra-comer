@@ -32,7 +32,8 @@ const SEAL_STATUS_LABELS: Record<string, string> = {
   anulado: "Anulado",
 };
 
-const fmtKg = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("es-PE")} kg`);
+const fmtTon = (n: number | null) =>
+  n == null ? "—" : `${(n / 1000).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TM`;
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("es-PE") : null);
 
 export default async function LotDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -165,9 +166,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   }
 
   const officialWeightHint =
-    oficial?.net_weight != null
-      ? `Pesaje oficial: ${fmtKg(oficial.net_weight)} (${(oficial.net_weight / 1000).toFixed(2)} TM)`
-      : undefined;
+    oficial?.net_weight != null ? `Pesaje oficial: ${fmtTon(oficial.net_weight)}` : undefined;
 
   const analysis = labAnalyses?.[0];
   const settlement = settlements?.[0];
@@ -305,7 +304,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
                 }`}
               >
                 Diferencia oficial vs. inicial: {diffKg > 0 ? "+" : ""}
-                {diffKg.toLocaleString("es-PE")} kg
+                {(diffKg / 1000).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TM
               </div>
             )}
           </div>
