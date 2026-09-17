@@ -40,7 +40,7 @@ export function ComminutionForm({
           <input
             name="processed_tons"
             type="number"
-            step="0.01"
+            step="0.0001"
             defaultValue={initialValues?.processed_tons ?? ""}
             className={inputClass}
           />
