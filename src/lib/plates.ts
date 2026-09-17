@@ -9,6 +9,11 @@ export const PLATE_CARRIERS: Record<string, (typeof CARRIERS)[number]> = {
   "CCB-928": "Jose Miguel Rodriguez",
   "D4L-916": "Jose Miguel Rodriguez",
   "TCJ-838": "Jose Miguel Rodriguez",
+  // Transportes Corporativos 3G SAC (TC3G) — molino a almacén.
+  "BTH-763": "Angel Villar Morgado",
+  "TNW-997": "Angel Villar Morgado",
+  "BXV-834": "Guillermo Fernando Quiroz Custodio",
+  "TNW-999": "Guillermo Fernando Quiroz Custodio",
 };
 
 export const KNOWN_PLATES = Object.keys(PLATE_CARRIERS);
