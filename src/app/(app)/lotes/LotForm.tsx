@@ -23,6 +23,12 @@ export type LotInitialValues = {
   estimated_au: string;
   estimated_pb: string;
   provisional_price_per_tmh: string;
+  // Fijación de precio: fecha y valor de mercado (oro/plata USD/oz, plomo USD/TM)
+  // que ya tiene guardado el lote — vacíos si es un lote anterior a este campo.
+  price_fixing_date: string; // yyyy-MM-dd
+  estimated_price_au: string;
+  estimated_price_ag: string;
+  estimated_price_pb: string;
 };
 
 export type ReferencePrices = {
@@ -67,46 +73,61 @@ export function LotForm({
   const [provisional, setProvisional] = useState(initialValues?.provisional_price_per_tmh ?? "");
   const carrierSelectRef = useRef<HTMLSelectElement>(null);
 
-  // Precio de referencia: arranca con el que ya vino calculado del servidor
-  // (hoy, en vivo o el último guardado), pero se puede recalcular por fecha —
-  // el pago provisional debería usar el precio del día del lote, no siempre
-  // el de "ahora mismo".
-  const [priceDate, setPriceDate] = useState(() => todayISO());
-  const [prices, setPrices] = useState(refPrices ?? null);
+  // Fijación de precio: fecha + valor de mercado fijado (oro, plata, plomo).
+  // Al crear un lote arranca con hoy y el precio que ya vino del servidor (en
+  // vivo o el último guardado); al editar, con lo que el lote ya tiene
+  // guardado (si es un lote anterior a este campo, la fecha queda vacía para
+  // que se elija a conciencia). Al elegir otra fecha se trae el precio
+  // guardado ese día, y los tres valores siempre se pueden corregir a mano.
+  const [priceDate, setPriceDate] = useState(
+    initialValues?.price_fixing_date || (mode === "edit" ? "" : todayISO()),
+  );
+  const [goldPrice, setGoldPrice] = useState(
+    initialValues?.estimated_price_au || (refPrices?.gold != null ? String(refPrices.gold) : ""),
+  );
+  const [silverPrice, setSilverPrice] = useState(
+    initialValues?.estimated_price_ag || (refPrices?.silver != null ? String(refPrices.silver) : ""),
+  );
+  const [leadPrice, setLeadPrice] = useState(
+    initialValues?.estimated_price_pb || (refPrices?.lead != null ? String(refPrices.lead) : ""),
+  );
+  const [priceIsLive, setPriceIsLive] = useState(
+    initialValues?.price_fixing_date ? false : (refPrices?.isLive ?? false),
+  );
   const [priceNotFound, setPriceNotFound] = useState(false);
   const [priceLoading, startPriceTransition] = useTransition();
 
   function handlePriceDateChange(newDate: string) {
     setPriceDate(newDate);
+    if (!newDate) return;
     startPriceTransition(async () => {
       const result = await getPricesForDate(newDate);
       setPriceNotFound(!result.found);
-      setPrices({
-        gold: result.gold,
-        silver: result.silver,
-        lead: result.lead,
-        referencePct: result.referencePct,
-        isLive: result.isLive,
-      });
+      setPriceIsLive(result.isLive);
+      setGoldPrice(result.gold != null ? String(result.gold) : "");
+      setSilverPrice(result.silver != null ? String(result.silver) : "");
+      setLeadPrice(result.lead != null ? String(result.lead) : "");
     });
   }
 
   const suggestion = useMemo(() => {
-    if (!prices || prices.gold == null || prices.silver == null) return null;
+    const goldNum = Number(goldPrice);
+    const silverNum = Number(silverPrice);
+    if (!goldNum || !silverNum) return null;
     const tmhNum = Number(tmh);
     const pctNum = Number(payablePct);
     if (!tmhNum || !pctNum) return null;
     return calcProvisionalPrice({
       tmh: tmhNum,
       payablePct: pctNum,
-      goldPriceUsdOz: prices.gold,
-      silverPriceUsdOz: prices.silver,
-      leadPriceUsdTon: prices.lead ?? 0,
+      goldPriceUsdOz: goldNum,
+      silverPriceUsdOz: silverNum,
+      leadPriceUsdTon: Number(leadPrice) || 0,
       goldGradeGT: Number(goldGrade) || 0,
       silverGradeGT: Number(silverGrade) || 0,
       leadGradePct: Number(leadGrade) || 0,
     });
-  }, [prices, tmh, payablePct, goldGrade, silverGrade, leadGrade]);
+  }, [goldPrice, silverPrice, leadPrice, tmh, payablePct, goldGrade, silverGrade, leadGrade]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.2fr_0.9fr]">
@@ -116,10 +137,6 @@ export function LotForm({
             <option key={p} value={p} />
           ))}
         </datalist>
-        {prices?.gold != null && <input type="hidden" name="estimated_price_au" value={prices.gold} />}
-        {prices?.silver != null && <input type="hidden" name="estimated_price_ag" value={prices.silver} />}
-        {prices?.lead != null && <input type="hidden" name="estimated_price_pb" value={prices.lead} />}
-
         <Section title="Datos del lote">
           <div className="grid grid-cols-2 gap-4">
             {mode === "edit" && (
@@ -275,6 +292,75 @@ export function LotForm({
           </div>
         </Section>
 
+        <Section title="Fijación de precio de mercado">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <label className="col-span-2 block sm:col-span-1">
+              <FieldLabel>Fecha de fijación de precio</FieldLabel>
+              <input
+                name="price_fixing_date"
+                type="date"
+                required
+                value={priceDate}
+                onChange={(e) => handlePriceDateChange(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <FieldLabel>Oro fijado (USD/oz)</FieldLabel>
+              <input
+                name="estimated_price_au"
+                type="number"
+                step="0.01"
+                required
+                value={goldPrice}
+                onChange={(e) => setGoldPrice(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <FieldLabel>Plata fijada (USD/oz)</FieldLabel>
+              <input
+                name="estimated_price_ag"
+                type="number"
+                step="0.01"
+                required
+                value={silverPrice}
+                onChange={(e) => setSilverPrice(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <FieldLabel>Plomo fijado (USD/TM)</FieldLabel>
+              <input
+                name="estimated_price_pb"
+                type="number"
+                step="0.01"
+                required
+                value={leadPrice}
+                onChange={(e) => setLeadPrice(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+          </div>
+          {priceLoading ? (
+            <Hint>Buscando el precio guardado para esa fecha...</Hint>
+          ) : priceNotFound ? (
+            <p className="mt-1 text-xs text-amber-700">
+              No hay precio guardado para esa fecha (o falta alguno de los tres) — cargalo a mano acá, o
+              guardalo primero en{" "}
+              <a href="/precios" className="underline">
+                Precios
+              </a>
+              .
+            </p>
+          ) : (
+            <Hint>
+              Al elegir la fecha se trae el precio guardado ese día (o el en vivo si es hoy); se puede
+              corregir a mano. Es el valor de mercado que después usa la valorización definitiva.
+            </Hint>
+          )}
+        </Section>
+
         <Section title="Negociación con el proveedor">
           <label className="block">
             <FieldLabel>Precio provisional (USD/TMH)</FieldLabel>
@@ -318,41 +404,23 @@ export function LotForm({
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-700">Pago provisional sugerido</h2>
-            {prices?.isLive && priceDate === todayISO() && (
+            {priceIsLive && priceDate === todayISO() && (
               <span className="flex items-center gap-1.5 text-xs text-gold-700">
                 <span className="h-1.5 w-1.5 rounded-full bg-gold-500" /> En vivo
               </span>
             )}
           </div>
 
-          <label className="mb-3 block">
-            <FieldLabel>Precios del día</FieldLabel>
-            <input
-              type="date"
-              value={priceDate}
-              onChange={(e) => handlePriceDateChange(e.target.value)}
-              className={inputClass}
-            />
-            <Hint>Elegí la fecha para traer el precio de oro/plata/plomo guardado ese día.</Hint>
-          </label>
-
-          {priceLoading ? (
-            <p className="text-sm text-slate-400">Buscando precio...</p>
-          ) : priceNotFound ? (
-            <p className="text-sm text-amber-700">
-              No hay precio guardado para esa fecha.{" "}
-              <a href="/precios" className="underline">
-                Cargalo en Precios
-              </a>{" "}
-              o elegí otra fecha.
+          {!Number(goldPrice) || !Number(silverPrice) ? (
+            <p className="text-sm text-slate-500">
+              Cargá la fecha de fijación y el valor de mercado fijado (oro y plata) para ver el cálculo.
             </p>
-          ) : !prices || (prices.gold == null && prices.silver == null) ? (
-            <p className="text-sm text-slate-500">No se pudo leer el precio internacional ahora mismo.</p>
           ) : (
             <div className="space-y-3 text-sm">
-              <Row label="Oro (USD/oz)" value={fmtUSD(prices.gold)} />
-              <Row label="Plata (USD/oz)" value={fmtUSD(prices.silver)} />
-              {prices.lead != null && <Row label="Plomo (USD/TM)" value={fmtUSD(prices.lead, 0)} />}
+              <Row label="Fecha de fijación" value={priceDate ? new Date(`${priceDate}T00:00:00`).toLocaleDateString("es-PE") : "—"} />
+              <Row label="Oro (USD/oz)" value={fmtUSD(Number(goldPrice))} />
+              <Row label="Plata (USD/oz)" value={fmtUSD(Number(silverPrice))} />
+              {Number(leadPrice) > 0 && <Row label="Plomo (USD/TM)" value={fmtUSD(Number(leadPrice), 0)} />}
               <Row label="% pagable inicial" value={`${payablePct || 0}%`} />
 
               <div className="border-t border-dashed border-slate-200 pt-3">

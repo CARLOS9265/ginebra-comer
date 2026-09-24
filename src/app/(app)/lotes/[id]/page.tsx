@@ -33,7 +33,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   const { data: lot } = await supabase
     .from("purchase_lots")
     .select(
-      "id, code, status, loaded_at, estimated_weight_tmh, provisional_price_per_tmh, carrier_name, truck_plate, estimated_au, estimated_ag, estimated_pb, estimated_price_au, estimated_price_ag, estimated_price_pb, providers(id, name, code)",
+      "id, code, status, loaded_at, estimated_weight_tmh, provisional_price_per_tmh, carrier_name, truck_plate, estimated_au, estimated_ag, estimated_pb, estimated_price_au, estimated_price_ag, estimated_price_pb, price_fixing_date, providers(id, name, code)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -219,6 +219,17 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
             <p className="mt-1 text-sm text-slate-500">
               {provider?.name ?? "—"} · Cargado el {new Date(lot.loaded_at).toLocaleDateString("es-PE")} ·{" "}
               {lot.estimated_weight_tmh ?? "—"} TMH estimadas
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {lot.price_fixing_date ? (
+                <>
+                  Precio fijado el {new Date(`${lot.price_fixing_date}T00:00:00`).toLocaleDateString("es-PE")} · Au{" "}
+                  {fmtUSD(lot.estimated_price_au, 2)}/oz · Ag {fmtUSD(lot.estimated_price_ag, 2)}/oz · Pb{" "}
+                  {fmtUSD(lot.estimated_price_pb, 0)}/TM
+                </>
+              ) : (
+                "Sin fecha de fijación de precio — editá el lote para cargarla."
+              )}
             </p>
           </div>
           <div className="flex items-center gap-3">

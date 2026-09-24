@@ -46,6 +46,10 @@ export default async function EditLotPage({ params }: { params: Promise<{ id: st
     estimated_ag: s(lot.estimated_ag),
     estimated_pb: s(lot.estimated_pb),
     provisional_price_per_tmh: s(lot.provisional_price_per_tmh),
+    price_fixing_date: s(lot.price_fixing_date),
+    estimated_price_au: s(lot.estimated_price_au),
+    estimated_price_ag: s(lot.estimated_price_ag),
+    estimated_price_pb: s(lot.estimated_price_pb),
   };
 
   const refPrices: ReferencePrices = {

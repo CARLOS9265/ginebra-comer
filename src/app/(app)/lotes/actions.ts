@@ -87,11 +87,26 @@ function buildLotFields(formData: FormData, profileId: string) {
     estimated_price_au: num(formData, "estimated_price_au"),
     estimated_price_ag: num(formData, "estimated_price_ag"),
     estimated_price_pb: num(formData, "estimated_price_pb"),
+    price_fixing_date: str(formData, "price_fixing_date") || null,
     updated_by: profileId,
   };
 
   return { tmh, precioProvisional, fields };
 }
+
+// La fecha de fijación y el valor de mercado fijado (oro, plata, plomo) son
+// obligatorios: sin los tres precios no se puede calcular después la
+// valorización definitiva (canEstimate/createSettlement los exigen).
+function missingPriceFixing(fields: ReturnType<typeof buildLotFields>["fields"]): boolean {
+  return (
+    !fields.price_fixing_date ||
+    fields.estimated_price_au == null ||
+    fields.estimated_price_ag == null ||
+    fields.estimated_price_pb == null
+  );
+}
+
+const PRICE_FIXING_ERROR = "Completá la fecha de fijación y el valor de mercado fijado (oro, plata y plomo).";
 
 export async function createPurchaseLot(
   _prevState: LotFormState,
@@ -110,9 +125,10 @@ export async function createPurchaseLot(
 
   if (!providerId || !loadedAt || !tmh || precioProvisional == null) {
     return {
-      error: "Completá proveedor, fecha/hora de carga, peso estimado y precio provisional.",
+      error: "Completá proveedor, fecha de carga, peso estimado y precio provisional.",
     };
   }
+  if (missingPriceFixing(fields)) return { error: PRICE_FIXING_ERROR };
 
   // Correlativo único de Ginebra, compartido entre todos los proveedores (no
   // se diferencia por empresa) — a pedido del usuario.
@@ -162,9 +178,10 @@ export async function updatePurchaseLot(
 
   if (!code || !fields.provider_id || !loadedAt || !tmh || precioProvisional == null) {
     return {
-      error: "Completá código, proveedor, fecha/hora de carga, peso estimado y precio provisional.",
+      error: "Completá código, proveedor, fecha de carga, peso estimado y precio provisional.",
     };
   }
+  if (missingPriceFixing(fields)) return { error: PRICE_FIXING_ERROR };
 
   const { data: lot, error: updateError } = await supabase
     .from("purchase_lots")
