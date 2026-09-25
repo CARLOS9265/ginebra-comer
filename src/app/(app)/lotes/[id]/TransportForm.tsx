@@ -6,8 +6,6 @@ import { CARRIERS } from "@/lib/carriers";
 
 type InitialValues = {
   carrier_name: string | null;
-  tariff_pen_per_tmh: number | null;
-  security_cost_pen: number | null;
 };
 
 export function TransportForm({
@@ -51,29 +49,10 @@ export function TransportForm({
             ))}
           </select>
         </label>
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Tarifa (S/ por TMH)</span>
-          <input
-            name="tariff_pen_per_tmh"
-            type="number"
-            step="0.01"
-            defaultValue={initialValues?.tariff_pen_per_tmh ?? "179.66"}
-            className={inputClass}
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Costo de seguridad (S/)</span>
-          <input
-            name="security_cost_pen"
-            type="number"
-            step="0.01"
-            defaultValue={initialValues?.security_cost_pen ?? ""}
-            className={inputClass}
-          />
-        </label>
       </div>
       <p className="text-xs text-slate-400">
-        La fecha de salida se toma de la fecha y hora de carga del lote.
+        La fecha de salida se toma de la fecha de carga del lote. La tarifa de transporte y el costo de
+        seguridad son fijos: se suman solos al costo del lote.
       </p>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       <div className="flex items-center gap-3">

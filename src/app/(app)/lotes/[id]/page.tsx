@@ -54,7 +54,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   ] = await Promise.all([
       supabase
         .from("transport_events")
-        .select("id, departed_at, carrier_name, tariff_pen_per_tmh, security_cost_pen")
+        .select("id, departed_at, carrier_name")
         .eq("purchase_lot_id", id)
         .order("created_at", { ascending: false }),
       supabase

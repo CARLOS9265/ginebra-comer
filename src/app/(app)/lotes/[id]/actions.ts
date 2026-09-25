@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { LOT_STATUS_ORDER, type LotStatus } from "@/lib/lot-status";
 import { estimateLot, type ContractSettings } from "@/lib/contract";
+import { TRANSPORT_TARIFF_PEN_PER_TMH, TRANSPORT_SECURITY_COST_PEN } from "@/lib/fixed-costs";
 
 export type LogisticsFormState = { error?: string } | null;
 
@@ -73,8 +74,10 @@ export async function createTransportEvent(
     purchase_lot_id: lotId,
     departed_at: lot.loaded_at,
     carrier_name: str(formData, "carrier_name") || null,
-    tariff_pen_per_tmh: num(formData, "tariff_pen_per_tmh"),
-    security_cost_pen: num(formData, "security_cost_pen"),
+    // Montos fijos: no se cargan a mano, pero quedan guardados para que
+    // /margenes los sume al gasto operativo del lote.
+    tariff_pen_per_tmh: TRANSPORT_TARIFF_PEN_PER_TMH,
+    security_cost_pen: TRANSPORT_SECURITY_COST_PEN,
     created_by: profile.id,
   });
 
@@ -100,11 +103,7 @@ export async function updateTransportEvent(
   const supabase = await createClient();
   const { error } = await supabase
     .from("transport_events")
-    .update({
-      carrier_name: str(formData, "carrier_name") || null,
-      tariff_pen_per_tmh: num(formData, "tariff_pen_per_tmh"),
-      security_cost_pen: num(formData, "security_cost_pen"),
-    })
+    .update({ carrier_name: str(formData, "carrier_name") || null })
     .eq("id", eventId);
 
   if (error) return { error: `No se pudo guardar: ${error.message}` };

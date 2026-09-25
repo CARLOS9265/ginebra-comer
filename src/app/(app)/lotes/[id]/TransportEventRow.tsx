@@ -11,8 +11,6 @@ type TransportEvent = {
   id: string;
   departed_at: string | null;
   carrier_name: string | null;
-  tariff_pen_per_tmh: number | null;
-  security_cost_pen: number | null;
 };
 
 export function TransportEventRow({ lotId, event }: { lotId: string; event: TransportEvent }) {
@@ -29,10 +27,6 @@ export function TransportEventRow({ lotId, event }: { lotId: string; event: Tran
       <div className="space-y-0.5 text-slate-400">
         <div>
           {event.carrier_name ?? "Transportista sin datos"} · {fmtDate(event.departed_at) ?? "Sin fecha de salida"}
-        </div>
-        <div className="text-xs text-slate-500">
-          {event.tariff_pen_per_tmh != null && `Tarifa S/ ${event.tariff_pen_per_tmh}/TMH`}
-          {event.security_cost_pen != null && ` · Seguridad S/ ${event.security_cost_pen}`}
         </div>
       </div>
       <div className="flex items-center gap-3">
