@@ -1,7 +1,9 @@
 const OZ_PER_TM = 31.1034768;
 
-// Cláusula 8.1: la ventana de fijación son los 30 días calendario a partir
-// del lunes de la semana siguiente a la entrega ("M+1").
+// Cláusula 8.1 (versión final del contrato, 01/09/2026): la ventana de
+// fijación es el mes siguiente a la semana de entrega ("M+1") — desde el lunes
+// de la semana siguiente a la entrega hasta el mismo día del mes siguiente. (La
+// versión anterior decía "30 días calendario".)
 export function computeFixationWindow(deliveryDate: Date): { start: string; end: string } {
   const d = new Date(deliveryDate);
   const day = d.getUTCDay();
@@ -11,17 +13,21 @@ export function computeFixationWindow(deliveryDate: Date): { start: string; end:
   d.setUTCDate(d.getUTCDate() + 7); // M+1: lunes de la semana siguiente
   const start = new Date(d);
   const end = new Date(d);
-  end.setUTCDate(end.getUTCDate() + 30);
+  end.setUTCMonth(end.getUTCMonth() + 1);
   return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
 export type ContractSettings = {
   tipo_cambio: number;
   merma_pct: number;
-  ag_banda: number;
-  ag_techo: number;
+  ag_banda: number; // 900: hasta acá se paga ag_pagable_bajo
+  ag_banda_2: number; // 1,200: hasta acá ag_pagable_alto
+  ag_banda_3: number; // 1,500: hasta acá ag_pagable_3; por encima ag_pagable_4
+  ag_techo: number | null; // null = la plata no tiene tope (contrato del 01/09/2026)
   ag_pagable_bajo: number;
   ag_pagable_alto: number;
+  ag_pagable_3: number;
+  ag_pagable_4: number;
   au_banda: number;
   au_techo: number;
   au_pagable_bajo: number;
@@ -86,13 +92,25 @@ export function estimateLot(input: LotEstimateInput, cfg: ContractSettings): Lot
 
   let agVal = ag;
   let auVal = au;
-  const agRecortado = ag > cfg.ag_techo;
+  const agRecortado = cfg.ag_techo != null && ag > cfg.ag_techo;
   const auRecortado = au > cfg.au_techo;
-  if (agRecortado) agVal = cfg.ag_techo;
+  if (agRecortado) agVal = cfg.ag_techo!;
   if (auRecortado) auVal = cfg.au_techo;
 
-  const agPagablePct = agVal >= cfg.ag_banda ? cfg.ag_pagable_alto : cfg.ag_pagable_bajo;
-  const auPagablePct = auVal >= cfg.au_banda ? cfg.au_pagable_alto : cfg.au_pagable_bajo;
+  // Cláusula 4.1: cada tramo es "mayor que" su límite inferior y "menor o
+  // igual" al superior — o sea, una ley exactamente en el límite (900, 1,200,
+  // 1,500 g/t de plata; 6 g/t de oro) cae en el tramo de ABAJO. Por debajo del
+  // primer tramo el contrato no define pagable (ensaye fuera de calidad, se
+  // negocia): se aplica el tramo más bajo.
+  const agPagablePct =
+    agVal > cfg.ag_banda_3
+      ? cfg.ag_pagable_4
+      : agVal > cfg.ag_banda_2
+        ? cfg.ag_pagable_3
+        : agVal > cfg.ag_banda
+          ? cfg.ag_pagable_alto
+          : cfg.ag_pagable_bajo;
+  const auPagablePct = auVal > cfg.au_banda ? cfg.au_pagable_alto : cfg.au_pagable_bajo;
   const pbPagablePct = Math.max(pb - cfg.pb_descuento, 0) * (cfg.pb_pagable_pct / 100);
 
   const agOzTMS = agVal / OZ_PER_TM;
