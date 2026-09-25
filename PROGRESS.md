@@ -417,7 +417,25 @@ venta, no parte de almacén). Es una pantalla de solo lectura — la carga de
 datos del traslado sigue siendo en `/lotes/[id]` (ahí ya estaban los
 formularios).
 
-**El contrato real con PY** (`PYCP-202656 - XXXXX - AG ORES _Vs 30.06.26 (1).docx`,
+**Contrato vigente: versión final del 01/09/2026** (`PYCP-202656 - AG ORES Final
+Version_.docx`, se lee desde la carpeta Descargas del usuario, tampoco va a git).
+Reemplaza al borrador de abajo. Lo que cambió en los **pagables** (cláusula 4.1),
+ya aplicado en `lib/contract.ts` + migración `0024`: la plata pasó de 2 a **4
+tramos** — 72.5 / 74.5 / **76.5 / 77.5 %** para 500–900 / 900–1,200 / 1,200–1,500 /
+más de 1,500 g/t — y **ya no tiene tope** (antes 1,100 g/t; `ag_techo` = null). Oro
+(4–6 → 68.5 %, 6–8 → 70.5 %, tope 8 g/t) y plomo (60 % tras descontar 3.5 puntos)
+no cambiaron. Además, cada tramo es "**mayor que** el límite inferior y menor o
+igual al superior": una ley justo en 900 / 1,200 / 1,500 g/t de plata o 6 g/t de
+oro cae en el tramo de **abajo** (el código anterior la ponía en el de arriba).
+Cláusula 8.1: la ventana de fijación es "el mes siguiente a la semana de entrega"
+(antes "30 días calendario") — `computeFixationWindow` ahora suma un mes. Cambios
+del contrato que la app **todavía no modela** (solo informativos): pago de la
+**detracción** por PY antes de que el mineral salga del almacén Trujillo hacia
+Callao (5.1), y calidad mínima Ag ≥ 900 g/t / Au ≥ 4 g/t / Pb ≥ 5 % (2.2). Las
+liquidaciones definitivas ya registradas **no se recalculan solas** (guardan los
+números con los que se hicieron): si hace falta, se borran y se vuelven a registrar.
+
+**El contrato anterior con PY** (`PYCP-202656 - XXXXX - AG ORES _Vs 30.06.26 (1).docx`,
 en la carpeta del proyecto, **no está en git a propósito** — es un documento
 comercial sensible, no se sube) **se leyó con permiso del usuario** y confirmó
 que `contract_settings` ya tenía los números reales del contrato (no eran
@@ -526,7 +544,7 @@ disponible (algunos entornos serverless), esto va a fallar silenciosamente y hay
 revisarlo** — probablemente haya que buscar una librería HTTP con huella TLS de
 navegador real, o mover este fetch a un cron/edge function con otro runtime.
 
-## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0019`)
+## Base de datos — migraciones aplicadas (`supabase/migrations/0001` a `0024`)
 
 - `0001_init.sql` — profiles/roles, providers, purchase_lots, seals, comminutions,
   big_bags, transport_events, weighings, mill_receptions, documents, audit_log,
