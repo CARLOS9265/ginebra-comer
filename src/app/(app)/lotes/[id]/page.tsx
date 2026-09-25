@@ -94,6 +94,19 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         : Promise.resolve({ data: [] as { amount_usd: number }[] }),
     ]);
 
+  // En la compra ya no se fija plomo (solo oro y plata): la valorización
+  // definitiva toma el plomo del lote si ya lo tenía guardado, y si no, el
+  // último precio de plomo cargado en Precios.
+  const { data: latestLead } = await supabase
+    .from("daily_metal_prices")
+    .select("price_date, lead_usd_ton")
+    .not("lead_usd_ton", "is", null)
+    .order("price_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const settlementLead: number | null = lot.estimated_price_pb ?? latestLead?.lead_usd_ton ?? null;
+  const leadIsFallback = lot.estimated_price_pb == null && latestLead?.lead_usd_ton != null;
+
   const { data: transfers } = await supabase
     .from("warehouse_transfers")
     .select("id, forklift_cost_pen, dispatch_carrier, dispatch_truck_plate, departed_at, arrived_at, incidents")
@@ -160,7 +173,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
     settlementTmh != null &&
     lot.estimated_price_au != null &&
     lot.estimated_price_ag != null &&
-    lot.estimated_price_pb != null &&
+    settlementLead != null &&
     analysis.au_gt != null &&
     analysis.ag_gt != null &&
     analysis.pb_pct != null;
@@ -175,7 +188,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
           humidity: analysis!.humidity_pct ?? 0,
           precioAg: lot.estimated_price_ag!,
           precioAu: lot.estimated_price_au!,
-          precioPb: lot.estimated_price_pb!,
+          precioPb: settlementLead!,
           precioProvisionalPorTonelada: lot.provisional_price_per_tmh ?? 0,
         },
         settings as unknown as ContractSettings,
@@ -224,8 +237,7 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
               {lot.price_fixing_date ? (
                 <>
                   Precio fijado el {new Date(`${lot.price_fixing_date}T00:00:00`).toLocaleDateString("es-PE")} · Au{" "}
-                  {fmtUSD(lot.estimated_price_au, 2)}/oz · Ag {fmtUSD(lot.estimated_price_ag, 2)}/oz · Pb{" "}
-                  {fmtUSD(lot.estimated_price_pb, 0)}/TM
+                  {fmtUSD(lot.estimated_price_au, 2)}/oz · Ag {fmtUSD(lot.estimated_price_ag, 2)}/oz
                 </>
               ) : (
                 "Sin fecha de fijación de precio — editá el lote para cargarla."
@@ -329,8 +341,15 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
           <div className="space-y-4">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
               <p className="mb-2 text-xs font-medium text-slate-500">
-                Vista previa (con ley real de laboratorio y el precio de metales del provisional)
+                Vista previa (con ley real de laboratorio y el precio de oro y plata fijado en la compra)
               </p>
+              {leadIsFallback && latestLead && (
+                <p className="mb-2 text-xs text-amber-700">
+                  Plomo: {fmtUSD(settlementLead, 0)}/TM — último precio cargado en Precios (
+                  {new Date(`${latestLead.price_date}T00:00:00`).toLocaleDateString("es-PE")}), porque en la
+                  compra ya no se fija plomo.
+                </p>
+              )}
               <Row label="Valor de venta a PY /TMH" value={fmtUSD(settlementPreview.valorPYxTMH)} />
               <Row label="Costos hasta la venta /TMH" value={fmtUSD(settlementPreview.costosXTMH)} />
               <Row label="Margen objetivo" value={fmtUSD(settings!.ganancia_objetivo_usd, 0)} />

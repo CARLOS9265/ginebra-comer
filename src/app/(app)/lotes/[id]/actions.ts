@@ -443,18 +443,32 @@ export async function createSettlement(
 
   const tmhUsed = oficial?.net_weight != null ? oficial.net_weight / 1000 : lot.estimated_weight_tmh;
 
+  // En la compra ya no se fija plomo: se usa el del lote si ya lo tenía
+  // guardado, y si no, el último plomo cargado en Precios.
+  let leadPrice: number | null = lot.estimated_price_pb;
+  if (leadPrice == null) {
+    const { data: latestLead } = await supabase
+      .from("daily_metal_prices")
+      .select("lead_usd_ton")
+      .not("lead_usd_ton", "is", null)
+      .order("price_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    leadPrice = latestLead?.lead_usd_ton ?? null;
+  }
+
   if (
     !tmhUsed ||
     lot.estimated_price_au == null ||
     lot.estimated_price_ag == null ||
-    lot.estimated_price_pb == null ||
+    leadPrice == null ||
     analysis.au_gt == null ||
     analysis.ag_gt == null ||
     analysis.pb_pct == null
   ) {
     return {
       error:
-        "Faltan datos para calcular (peso, precios de metal del provisional, o ley de laboratorio). Revisá el lote.",
+        "Faltan datos para calcular (peso, precio de oro/plata de la compra, plomo cargado en Precios, o ley de laboratorio). Revisá el lote.",
     };
   }
 
@@ -467,7 +481,7 @@ export async function createSettlement(
       humidity: analysis.humidity_pct ?? 0,
       precioAg: lot.estimated_price_ag,
       precioAu: lot.estimated_price_au,
-      precioPb: lot.estimated_price_pb,
+      precioPb: leadPrice,
       precioProvisionalPorTonelada: lot.provisional_price_per_tmh ?? 0,
     },
     settings as unknown as ContractSettings,
@@ -500,7 +514,7 @@ export async function createSettlement(
       tmh_used: tmhUsed,
       price_au: lot.estimated_price_au,
       price_ag: lot.estimated_price_ag,
-      price_pb: lot.estimated_price_pb,
+      price_pb: leadPrice,
       au_payable_pct: result.auPagablePct,
       ag_payable_pct: result.agPagablePct,
       pb_payable_pct: result.pbPagableFactor,

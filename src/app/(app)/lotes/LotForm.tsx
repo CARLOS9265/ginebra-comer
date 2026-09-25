@@ -21,14 +21,12 @@ export type LotInitialValues = {
   initial_invoice_number: string;
   estimated_ag: string;
   estimated_au: string;
-  estimated_pb: string;
   provisional_price_per_tmh: string;
-  // Fijación de precio: fecha y valor de mercado (oro/plata USD/oz, plomo USD/TM)
+  // Fijación de precio: fecha y valor de mercado (oro/plata USD/oz — en compra no se fija plomo)
   // que ya tiene guardado el lote — vacíos si es un lote anterior a este campo.
   price_fixing_date: string; // yyyy-MM-dd
   estimated_price_au: string;
   estimated_price_ag: string;
-  estimated_price_pb: string;
 };
 
 export type ReferencePrices = {
@@ -69,11 +67,10 @@ export function LotForm({
   const [payablePct, setPayablePct] = useState(String(refPrices?.referencePct ?? 40));
   const [goldGrade, setGoldGrade] = useState(initialValues?.estimated_au ?? "");
   const [silverGrade, setSilverGrade] = useState(initialValues?.estimated_ag ?? "");
-  const [leadGrade, setLeadGrade] = useState(initialValues?.estimated_pb ?? "");
   const [provisional, setProvisional] = useState(initialValues?.provisional_price_per_tmh ?? "");
   const carrierSelectRef = useRef<HTMLSelectElement>(null);
 
-  // Fijación de precio: fecha + valor de mercado fijado (oro, plata, plomo).
+  // Fijación de precio: fecha + valor de mercado fijado (oro y plata).
   // Al crear un lote arranca con hoy y el precio que ya vino del servidor (en
   // vivo o el último guardado); al editar, con lo que el lote ya tiene
   // guardado (si es un lote anterior a este campo, la fecha queda vacía para
@@ -87,9 +84,6 @@ export function LotForm({
   );
   const [silverPrice, setSilverPrice] = useState(
     initialValues?.estimated_price_ag || (refPrices?.silver != null ? String(refPrices.silver) : ""),
-  );
-  const [leadPrice, setLeadPrice] = useState(
-    initialValues?.estimated_price_pb || (refPrices?.lead != null ? String(refPrices.lead) : ""),
   );
   const [priceIsLive, setPriceIsLive] = useState(
     initialValues?.price_fixing_date ? false : (refPrices?.isLive ?? false),
@@ -106,7 +100,6 @@ export function LotForm({
       setPriceIsLive(result.isLive);
       setGoldPrice(result.gold != null ? String(result.gold) : "");
       setSilverPrice(result.silver != null ? String(result.silver) : "");
-      setLeadPrice(result.lead != null ? String(result.lead) : "");
     });
   }
 
@@ -122,12 +115,12 @@ export function LotForm({
       payablePct: pctNum,
       goldPriceUsdOz: goldNum,
       silverPriceUsdOz: silverNum,
-      leadPriceUsdTon: Number(leadPrice) || 0,
+      leadPriceUsdTon: 0,
       goldGradeGT: Number(goldGrade) || 0,
       silverGradeGT: Number(silverGrade) || 0,
-      leadGradePct: Number(leadGrade) || 0,
+      leadGradePct: 0,
     });
-  }, [goldPrice, silverPrice, leadPrice, tmh, payablePct, goldGrade, silverGrade, leadGrade]);
+  }, [goldPrice, silverPrice, tmh, payablePct, goldGrade, silverGrade]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.2fr_0.9fr]">
@@ -243,7 +236,7 @@ export function LotForm({
             proveedor o acordada) que sirve solo para calcular el pago inicial. La ley real
             llega después de la molienda y ahí se reliquida (segunda fijación).
           </p>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <label className="block">
               <FieldLabel>Au (g/t)</FieldLabel>
               <input
@@ -267,17 +260,6 @@ export function LotForm({
               />
             </label>
             <label className="block">
-              <FieldLabel>Pb (%)</FieldLabel>
-              <input
-                name="estimated_pb"
-                type="number"
-                step="0.01"
-                value={leadGrade}
-                onChange={(e) => setLeadGrade(e.target.value)}
-                className={inputClass}
-              />
-            </label>
-            <label className="block">
               <FieldLabel>% pagable inicial</FieldLabel>
               <input
                 name="payable_pct"
@@ -293,7 +275,7 @@ export function LotForm({
         </Section>
 
         <Section title="Fijación de precio de mercado">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <label className="col-span-2 block sm:col-span-1">
               <FieldLabel>Fecha de fijación de precio</FieldLabel>
               <input
@@ -329,24 +311,12 @@ export function LotForm({
                 className={inputClass}
               />
             </label>
-            <label className="block">
-              <FieldLabel>Plomo fijado (USD/TM)</FieldLabel>
-              <input
-                name="estimated_price_pb"
-                type="number"
-                step="0.01"
-                required
-                value={leadPrice}
-                onChange={(e) => setLeadPrice(e.target.value)}
-                className={inputClass}
-              />
-            </label>
           </div>
           {priceLoading ? (
             <Hint>Buscando el precio guardado para esa fecha...</Hint>
           ) : priceNotFound ? (
             <p className="mt-1 text-xs text-amber-700">
-              No hay precio guardado para esa fecha (o falta alguno de los tres) — cargalo a mano acá, o
+              No hay precio de oro/plata guardado para esa fecha — cargalo a mano acá, o
               guardalo primero en{" "}
               <a href="/precios" className="underline">
                 Precios
@@ -355,8 +325,8 @@ export function LotForm({
             </p>
           ) : (
             <Hint>
-              Al elegir la fecha se trae el precio guardado ese día (o el en vivo si es hoy); se puede
-              corregir a mano. Es el valor de mercado que después usa la valorización definitiva.
+              Al elegir la fecha se trae el precio de oro y plata guardado ese día (o el en vivo si es hoy); se
+              puede corregir a mano. En la compra solo se fija oro y plata — el plomo no se carga acá.
             </Hint>
           )}
         </Section>
@@ -420,19 +390,17 @@ export function LotForm({
               <Row label="Fecha de fijación" value={priceDate ? new Date(`${priceDate}T00:00:00`).toLocaleDateString("es-PE") : "—"} />
               <Row label="Oro (USD/oz)" value={fmtUSD(Number(goldPrice))} />
               <Row label="Plata (USD/oz)" value={fmtUSD(Number(silverPrice))} />
-              {Number(leadPrice) > 0 && <Row label="Plomo (USD/TM)" value={fmtUSD(Number(leadPrice), 0)} />}
               <Row label="% pagable inicial" value={`${payablePct || 0}%`} />
 
               <div className="border-t border-dashed border-slate-200 pt-3">
-                {!tmh || !goldGrade && !silverGrade && !leadGrade ? (
+                {!tmh || (!goldGrade && !silverGrade) ? (
                   <p className="text-xs text-slate-400">
-                    Cargá el peso (TMH) y al menos una ley estimada para ver el cálculo.
+                    Cargá el peso (TMH) y al menos una ley estimada (oro o plata) para ver el cálculo.
                   </p>
                 ) : suggestion ? (
                   <>
                     <Row label="Au → USD/TMS" value={fmtUSD(suggestion.goldUsdPerTms)} />
                     <Row label="Ag → USD/TMS" value={fmtUSD(suggestion.silverUsdPerTms)} />
-                    <Row label="Pb → USD/TMS" value={fmtUSD(suggestion.leadUsdPerTms)} />
                     <div className="mt-2 border-t border-dashed border-slate-200 pt-2">
                       <Row label="Precio unitario" value={`${fmtUSD(suggestion.unitPriceUsdPerTms)}/TMH`} strong />
                       <Row label="Total del lote" value={fmtUSD(suggestion.totalUsd, 0)} strong />

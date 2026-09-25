@@ -83,10 +83,8 @@ function buildLotFields(formData: FormData, profileId: string) {
     initial_invoice_number: str(formData, "initial_invoice_number") || null,
     estimated_au: num(formData, "estimated_au"),
     estimated_ag: num(formData, "estimated_ag"),
-    estimated_pb: num(formData, "estimated_pb"),
     estimated_price_au: num(formData, "estimated_price_au"),
     estimated_price_ag: num(formData, "estimated_price_ag"),
-    estimated_price_pb: num(formData, "estimated_price_pb"),
     price_fixing_date: str(formData, "price_fixing_date") || null,
     updated_by: profileId,
   };
@@ -94,19 +92,16 @@ function buildLotFields(formData: FormData, profileId: string) {
   return { tmh, precioProvisional, fields };
 }
 
-// La fecha de fijación y el valor de mercado fijado (oro, plata, plomo) son
-// obligatorios: sin los tres precios no se puede calcular después la
-// valorización definitiva (canEstimate/createSettlement los exigen).
+// La fecha de fijación y el valor de mercado fijado (oro y plata) son
+// obligatorios. En la compra ya no se fija plomo (a pedido del usuario): las
+// columnas estimated_pb/estimated_price_pb no se tocan desde este formulario,
+// así que los lotes que ya las tenían las conservan, y la valorización
+// definitiva usa el último plomo cargado en Precios cuando el lote no tiene.
 function missingPriceFixing(fields: ReturnType<typeof buildLotFields>["fields"]): boolean {
-  return (
-    !fields.price_fixing_date ||
-    fields.estimated_price_au == null ||
-    fields.estimated_price_ag == null ||
-    fields.estimated_price_pb == null
-  );
+  return !fields.price_fixing_date || fields.estimated_price_au == null || fields.estimated_price_ag == null;
 }
 
-const PRICE_FIXING_ERROR = "Completá la fecha de fijación y el valor de mercado fijado (oro, plata y plomo).";
+const PRICE_FIXING_ERROR = "Completá la fecha de fijación y el valor de mercado fijado (oro y plata).";
 
 export async function createPurchaseLot(
   _prevState: LotFormState,
