@@ -129,7 +129,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
       <header className="bg-navy-900">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="shrink-0 overflow-hidden rounded-md bg-white" style={{ width: 64, height: 44 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -158,7 +158,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </div>
         <nav className="border-t border-navy-800/80">
-          <div className="mx-auto flex max-w-6xl items-end gap-1 overflow-x-auto px-6 pt-2.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-navy-700 [&::-webkit-scrollbar-track]:bg-transparent">
+          <div className="mx-auto flex max-w-screen-2xl items-end gap-1 overflow-x-auto px-6 pt-2.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-navy-700 [&::-webkit-scrollbar-track]:bg-transparent">
             <NavCluster links={NAV_START} />
             <NavDivider />
             {NAV_GROUPS.map((group, i) => (
@@ -172,7 +172,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </nav>
       </header>
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-screen-2xl px-6 py-8">{children}</main>
     </div>
   );
 }
