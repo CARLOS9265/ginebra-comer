@@ -30,11 +30,13 @@ const numStr = (n: number | null | undefined) => (n == null ? "" : String(n));
 
 export function LabAnalysisForm({
   lotId,
+  lotCode,
   analysisId,
   initialValues,
   onDone,
 }: {
   lotId: string;
+  lotCode: string;
   analysisId?: string;
   initialValues?: InitialValues;
   onDone?: () => void;
@@ -66,6 +68,7 @@ export function LabAnalysisForm({
     <form action={action} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
       {!analysisId && (
         <LabReportScanInput
+          lotCode={lotCode}
           onExtracted={(data) => {
             if (data.lab_name) setLabName(data.lab_name);
             if (data.report_number) setReportNumber(data.report_number);

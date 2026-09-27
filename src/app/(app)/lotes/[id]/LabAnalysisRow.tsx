@@ -47,12 +47,14 @@ type Analysis = {
 
 export function LabAnalysisRow({
   lotId,
+  lotCode,
   analysis,
   estimatedAu,
   estimatedAg,
   estimatedPb,
 }: {
   lotId: string;
+  lotCode: string;
   analysis: Analysis;
   estimatedAu: number | null;
   estimatedAg: number | null;
@@ -62,7 +64,13 @@ export function LabAnalysisRow({
 
   if (editing) {
     return (
-      <LabAnalysisForm lotId={lotId} analysisId={analysis.id} initialValues={analysis} onDone={() => setEditing(false)} />
+      <LabAnalysisForm
+        lotId={lotId}
+        lotCode={lotCode}
+        analysisId={analysis.id}
+        initialValues={analysis}
+        onDone={() => setEditing(false)}
+      />
     );
   }
 

@@ -7,7 +7,13 @@ import { extractLabAnalysis, type LabAnalysisExtraction } from "@/app/(app)/lote
 // pantalla o PDF del informe/resultados de laboratorio, lo manda a leer con
 // Gemini y devuelve los valores para prellenar el formulario — nunca guarda
 // ni envía nada solo, el usuario siempre revisa y confirma.
-export function LabReportScanInput({ onExtracted }: { onExtracted: (data: LabAnalysisExtraction) => void }) {
+export function LabReportScanInput({
+  lotCode,
+  onExtracted,
+}: {
+  lotCode: string;
+  onExtracted: (data: LabAnalysisExtraction) => void;
+}) {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -17,7 +23,7 @@ export function LabReportScanInput({ onExtracted }: { onExtracted: (data: LabAna
     setScanning(true);
     try {
       const base64 = await fileToBase64(file);
-      const result = await extractLabAnalysis(base64, file.type || "image/jpeg");
+      const result = await extractLabAnalysis(lotCode, base64, file.type || "image/jpeg");
       if ("error" in result) {
         setError(result.error);
       } else {
@@ -52,7 +58,8 @@ export function LabReportScanInput({ onExtracted }: { onExtracted: (data: LabAna
       </label>
       {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
       <p className="mt-1.5 text-xs text-slate-400">
-        Completa los campos abajo — revisalos antes de guardar, la lectura puede fallar.
+        Si el informe trae varias muestras, solo toma la del lote <span className="font-mono">{lotCode}</span> — las
+        demás se ignoran. Completa los campos abajo y revisalos antes de guardar, la lectura puede fallar.
       </p>
     </div>
   );

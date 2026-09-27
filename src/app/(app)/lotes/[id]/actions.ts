@@ -280,11 +280,20 @@ export type LabAnalysisExtraction = {
 const LAB_ANALYSIS_SCHEMA = {
   type: "OBJECT",
   properties: {
+    matched: {
+      type: "BOOLEAN",
+      description: "true solo si encontraste, entre las filas de la imagen, una cuyo Nombre Muestra corresponde al lote pedido.",
+    },
+    all_sample_names: {
+      type: "ARRAY",
+      items: { type: "STRING" },
+      description: "Nombres de muestra de TODAS las filas visibles en la imagen (para poder avisar si ninguna coincide).",
+    },
     lab_name: { type: "STRING", nullable: true, description: "Nombre del laboratorio que emite el informe." },
     report_number: {
       type: "STRING",
       nullable: true,
-      description: "Nombre/código de la muestra o número de informe (ej. 'LT-2843').",
+      description: "Nombre/código de la muestra que coincidió (ej. 'LT-2843'). Null si matched=false.",
     },
     date: { type: "STRING", nullable: true, description: "Fecha de recepción/resultado en formato YYYY-MM-DD." },
     au_gt: { type: "NUMBER", nullable: true, description: "Oro (Au) en g/tm." },
@@ -295,21 +304,60 @@ const LAB_ANALYSIS_SCHEMA = {
     s_pct: { type: "NUMBER", nullable: true, description: "Azufre (S) en %." },
     humidity_pct: { type: "NUMBER", nullable: true, description: "Humedad (H2O) en %." },
   },
-  required: ["lab_name", "report_number", "date", "au_gt", "ag_gt", "pb_pct", "as_pct", "sb_pct", "s_pct", "humidity_pct"],
+  required: [
+    "matched",
+    "all_sample_names",
+    "lab_name",
+    "report_number",
+    "date",
+    "au_gt",
+    "ag_gt",
+    "pb_pct",
+    "as_pct",
+    "sb_pct",
+    "s_pct",
+    "humidity_pct",
+  ],
 };
 
-const LAB_ANALYSIS_PROMPT =
-  "Esto es un informe o captura de pantalla de resultados de laboratorio de un laboratorio de minerales " +
-  "en Perú (columnas típicas: AG g/tm, AU g/tm, % PB, % AS, % SB, % S, % H2O, Nombre Muestra, Fecha de " +
-  "recepción). Si hay varias filas/muestras, usá la más reciente (o la única, si hay una sola). Extraé el " +
-  "nombre del laboratorio, el nombre de la muestra o N° de informe, la fecha, y los valores de ley. Si algún " +
-  "dato no aparece con claridad, devolvé null para ese campo — no inventes valores.";
+function buildLabAnalysisPrompt(lotCode: string, sampleKey: string): string {
+  return (
+    "Esto es un informe o captura de pantalla de resultados de laboratorio de un laboratorio de minerales " +
+    "en Perú (columnas típicas: AG g/tm, AU g/tm, % PB, % AS, % SB, % S, % H2O, Nombre Muestra, Fecha de " +
+    "recepción) — puede tener varias filas, una por muestra/lote.\n\n" +
+    `Buscás específicamente la fila cuyo "Nombre Muestra" corresponde al lote ${lotCode}. El nombre de ` +
+    `muestra del laboratorio suele ser el código del lote sin el prefijo de la empresa — para este lote, ` +
+    `buscá algo como "${sampleKey}" (puede tener guiones, espacios o mayúsculas distintas; tratalo como ` +
+    "coincidencia si el código es el mismo). Las demás filas son de OTROS lotes u otros muestreos — NO las " +
+    "uses aunque sean la fecha más reciente. Devolvé matched=true y los valores de esa fila SOLO si " +
+    `encontrás una fila que corresponda a "${sampleKey}"; si ninguna fila coincide, devolvé matched=false y ` +
+    "null en todos los demás campos (excepto all_sample_names, listá ahí los nombres de muestra que sí " +
+    "viste, para poder avisarle al usuario). No inventes valores."
+  );
+}
+
+function normalizeCode(s: string): string {
+  return s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+// El "nombre de muestra" del laboratorio es el código del lote sin el
+// prefijo de la empresa (ej. lote GINE-LT-2843 -> muestra "LT-2843") — a
+// falta de un prefijo reconocido, se usa el código completo.
+function sampleKeyForLot(lotCode: string): string {
+  const withoutPrefix = lotCode.replace(/^GINE-/i, "");
+  return withoutPrefix || lotCode;
+}
 
 // Lee un informe/captura de resultados de laboratorio con Gemini y devuelve
 // los datos para prellenar el formulario de "Laboratorio" del lote — igual
 // que extractWeighingTicket, nunca guarda nada, el usuario revisa y confirma
-// (o corrige) antes de enviar.
+// (o corrige) antes de enviar. Un informe puede traer varias muestras (de
+// distintos lotes/muestreos) en la misma imagen: se exige que el "Nombre
+// Muestra" coincida con el lote pedido, tanto en el prompt como con una
+// verificación propia después — si no hay coincidencia real, no se
+// completa nada (para no mezclar resultados de otro lote).
 export async function extractLabAnalysis(
+  lotCode: string,
   base64Data: string,
   mimeType: string,
 ): Promise<{ data: LabAnalysisExtraction } | { error: string }> {
@@ -318,8 +366,12 @@ export async function extractLabAnalysis(
     return { error: "Tu rol no puede usar esta función." };
   }
 
+  const sampleKey = sampleKeyForLot(lotCode);
+
   try {
     const result = await extractFromDocument<{
+      matched: boolean;
+      all_sample_names: string[];
       lab_name: string | null;
       report_number: string | null;
       date: string | null;
@@ -331,16 +383,49 @@ export async function extractLabAnalysis(
       s_pct: number | null;
       humidity_pct: number | null;
     }>({
-      prompt: LAB_ANALYSIS_PROMPT,
+      prompt: buildLabAnalysisPrompt(lotCode, sampleKey),
       base64Data,
       mimeType,
       responseSchema: LAB_ANALYSIS_SCHEMA,
     });
+
+    // No confiamos ciegamente en el "matched" del modelo: se verifica acá
+    // que, entre los nombres de muestra que dice haber visto en la imagen,
+    // haya alguno que de verdad corresponda al lote pedido. (No se usa
+    // report_number para esta verificación — en la práctica el modelo a
+    // veces lo deja en null incluso cuando matched=true; all_sample_names
+    // resultó más confiable.)
+    const codesOverlap = (a: string, b: string) => {
+      const na = normalizeCode(a);
+      const nb = normalizeCode(b);
+      return !!na && !!nb && (na.includes(nb) || nb.includes(na));
+    };
+    const reallyMatched =
+      result.matched && (result.all_sample_names ?? []).some((name) => codesOverlap(name, sampleKey));
+
+    if (!reallyMatched) {
+      const seen = result.all_sample_names?.filter(Boolean).join(", ");
+      return {
+        error: seen
+          ? `Ninguna muestra de esta imagen corresponde al lote ${lotCode} (buscaba "${sampleKey}"). Las muestras que aparecen son: ${seen} — de otros lotes/muestreos.`
+          : `No se encontró en la imagen una muestra que corresponda al lote ${lotCode} (buscaba "${sampleKey}").`,
+      };
+    }
+
+    // A veces devuelve la fecha con hora (ej. "2026-09-15 11:27:29") aunque
+    // se pidió solo YYYY-MM-DD — el input de fecha del form no acepta eso.
+    const analyzedAt = result.date?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
+
     return {
       data: {
         lab_name: result.lab_name,
-        report_number: result.report_number,
-        analyzed_at: result.date,
+        // Si matcheó pero no llenó report_number (pasa), se usa el nombre
+        // de muestra que sí encontró y coincidió.
+        report_number:
+          result.report_number ??
+          result.all_sample_names?.find((name) => codesOverlap(name, sampleKey)) ??
+          null,
+        analyzed_at: analyzedAt,
         au_gt: result.au_gt,
         ag_gt: result.ag_gt,
         pb_pct: result.pb_pct,

@@ -316,13 +316,14 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
         {analysis ? (
           <LabAnalysisRow
             lotId={lot.id}
+            lotCode={lot.code}
             analysis={analysis}
             estimatedAu={lot.estimated_au}
             estimatedAg={lot.estimated_ag}
             estimatedPb={lot.estimated_pb}
           />
         ) : (
-          <LabAnalysisForm lotId={lot.id} />
+          <LabAnalysisForm lotId={lot.id} lotCode={lot.code} />
         )}
       </Section>
 
