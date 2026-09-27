@@ -8,6 +8,9 @@ import { MONTH_NAMES, monthParam, parseMonthParam, monthRange, shiftMonth } from
 const fmtUSD = (n: number | null) =>
   n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 
+const fmtTon = (n: number | null) =>
+  n == null ? "—" : (n / 1000).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export default async function LotsPage({
   searchParams,
 }: {
@@ -32,6 +35,26 @@ export default async function LotsPage({
   // (no tiene sentido "esconder" un lote que sigue en molino solo porque se
   // cargó el mes pasado). Solo la tabla de abajo se filtra por mes de carga.
   const lots = (allLots ?? []).filter((l) => l.loaded_at >= start && l.loaded_at < nextStart);
+
+  // Los 3 pesos del recorrido del lote: guía (inicial, en mina), balanza
+  // oficial de Trujillo, y balanza propia de Huanchaco (traslado a almacén)
+  // — para no mostrar solo el peso ESTIMADO (TMH) cuando ya hay pesos reales.
+  const weighByLot = new Map<string, { inicial: number | null; oficial: number | null; huanchaco: number | null }>();
+  if (lots.length > 0) {
+    const { data: weighings } = await supabase
+      .from("weighings")
+      .select("purchase_lot_id, type, net_weight")
+      .in(
+        "purchase_lot_id",
+        lots.map((l) => l.id),
+      );
+    for (const w of weighings ?? []) {
+      if (w.type !== "inicial" && w.type !== "oficial" && w.type !== "huanchaco") continue;
+      const entry = weighByLot.get(w.purchase_lot_id) ?? { inicial: null, oficial: null, huanchaco: null };
+      entry[w.type as "inicial" | "oficial" | "huanchaco"] = w.net_weight;
+      weighByLot.set(w.purchase_lot_id, entry);
+    }
+  }
 
   return (
     <div>
@@ -94,7 +117,9 @@ export default async function LotsPage({
                 <th className="px-4 py-3">Proveedor</th>
                 <th className="px-4 py-3">Placa</th>
                 <th className="px-4 py-3">Carga</th>
-                <th className="px-4 py-3 text-right">TMH</th>
+                <th className="px-4 py-3 text-right">Guía (TM)</th>
+                <th className="px-4 py-3 text-right">Balanza (TM)</th>
+                <th className="px-4 py-3 text-right">Almacén (TM)</th>
                 <th className="px-4 py-3 text-right">Precio prov. /TMH</th>
                 <th className="px-4 py-3 text-right">Total USD</th>
                 <th className="px-4 py-3 text-right">Margen proy. /TMH</th>
@@ -105,6 +130,7 @@ export default async function LotsPage({
             <tbody className="divide-y divide-slate-800">
               {lots.map((l) => {
                 const provider = Array.isArray(l.providers) ? l.providers[0] : l.providers;
+                const weigh = weighByLot.get(l.id);
                 const totalUsd =
                   l.estimated_weight_tmh != null && l.provisional_price_per_tmh != null
                     ? l.estimated_weight_tmh * l.provisional_price_per_tmh
@@ -121,8 +147,10 @@ export default async function LotsPage({
                     <td className="px-4 py-3 text-slate-500">
                       {new Date(l.loaded_at).toLocaleDateString("es-PE")}
                     </td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-400">{fmtTon(weigh?.inicial ?? null)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-400">{fmtTon(weigh?.oficial ?? null)}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-400">
-                      {l.estimated_weight_tmh ?? "—"}
+                      {fmtTon(weigh?.huanchaco ?? null)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-slate-400">
                       {fmtUSD(l.provisional_price_per_tmh)}
