@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { createWeighing, updateWeighing, type LogisticsFormState } from "./actions";
+import { TicketScanInput } from "@/components/TicketScanInput";
 
 const TYPE_LABELS: Record<string, string> = {
   inicial: "Inicial (guía)",
@@ -44,8 +45,23 @@ export function WeighingForm({
     prevPending.current = pending;
   }, [pending, state, onDone]);
 
+  // Controlados (en vez de defaultValue) para que la lectura del ticket
+  // pueda prellenarlos — el usuario los sigue pudiendo editar a mano.
+  const [netWeight, setNetWeight] = useState(String(initialValues?.net_weight ?? ""));
+  const [ticketNumber, setTicketNumber] = useState(initialValues?.ticket_number ?? "");
+  const [weighedAt, setWeighedAt] = useState(toLocalInputValue(initialValues?.weighed_at ?? null));
+
   return (
     <form action={action} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+      {!weighingId && (
+        <TicketScanInput
+          onExtracted={(data) => {
+            if (data.net_weight != null) setNetWeight(String(data.net_weight));
+            if (data.ticket_number) setTicketNumber(data.ticket_number);
+            if (data.weighed_at) setWeighedAt(data.weighed_at);
+          }}
+        />
+      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Tipo</span>
@@ -64,20 +80,27 @@ export function WeighingForm({
             type="number"
             step="0.01"
             required
-            defaultValue={initialValues?.net_weight ?? ""}
+            value={netWeight}
+            onChange={(e) => setNetWeight(e.target.value)}
             className={inputClass}
           />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">N° de ticket</span>
-          <input name="ticket_number" defaultValue={initialValues?.ticket_number ?? ""} className={inputClass} />
+          <input
+            name="ticket_number"
+            value={ticketNumber}
+            onChange={(e) => setTicketNumber(e.target.value)}
+            className={inputClass}
+          />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Fecha</span>
           <input
             name="weighed_at"
             type="date"
-            defaultValue={toLocalInputValue(initialValues?.weighed_at ?? null)}
+            value={weighedAt}
+            onChange={(e) => setWeighedAt(e.target.value)}
             className={inputClass}
           />
         </label>

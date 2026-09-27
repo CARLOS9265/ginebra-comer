@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { LOT_STATUS_ORDER, type LotStatus } from "@/lib/lot-status";
 import { estimateLot, type ContractSettings } from "@/lib/contract";
 import { TRANSPORT_TARIFF_PEN_PER_TMH, TRANSPORT_SECURITY_COST_PEN } from "@/lib/fixed-costs";
+import { extractFromDocument } from "@/lib/assistant/gemini";
 
 export type LogisticsFormState = { error?: string } | null;
 
@@ -204,6 +205,63 @@ export async function deleteWeighing(lotId: string, weighingId: string) {
   const { error } = await supabase.from("weighings").delete().eq("id", weighingId);
   if (error) return { error: `No se pudo eliminar: ${error.message}` };
   revalidatePath(`/lotes/${lotId}`);
+}
+
+export type TicketExtraction = {
+  net_weight: number | null;
+  ticket_number: string | null;
+  weighed_at: string | null; // yyyy-MM-dd
+};
+
+const TICKET_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    net_weight_kg: { type: "NUMBER", nullable: true, description: "Peso neto en kilogramos (campo NETO)." },
+    ticket_number: { type: "STRING", nullable: true, description: "Número de ticket/comprobante de la balanza." },
+    date: { type: "STRING", nullable: true, description: "Fecha del ticket en formato YYYY-MM-DD." },
+  },
+  required: ["net_weight_kg", "ticket_number", "date"],
+};
+
+const TICKET_PROMPT =
+  "Esto es la foto de un ticket de balanza (pesaje de un camión con mineral) en Perú. " +
+  "Extraé el peso NETO en kilogramos (si el ticket lo da en toneladas, convertilo a kg), " +
+  "el número de ticket/comprobante, y la fecha (FECHA) en formato YYYY-MM-DD. " +
+  "Si algún dato no aparece con claridad, devolvé null para ese campo — no inventes valores.";
+
+// Lee una foto o PDF de un ticket de balanza con Gemini y devuelve los datos
+// para prellenar el formulario de pesaje — nunca guarda nada, el usuario
+// revisa y confirma (o corrige) antes de enviar.
+export async function extractWeighingTicket(
+  base64Data: string,
+  mimeType: string,
+): Promise<{ data: TicketExtraction } | { error: string }> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede usar esta función." };
+  }
+
+  try {
+    const result = await extractFromDocument<{
+      net_weight_kg: number | null;
+      ticket_number: string | null;
+      date: string | null;
+    }>({
+      prompt: TICKET_PROMPT,
+      base64Data,
+      mimeType,
+      responseSchema: TICKET_SCHEMA,
+    });
+    return {
+      data: {
+        net_weight: result.net_weight_kg,
+        ticket_number: result.ticket_number,
+        weighed_at: result.date,
+      },
+    };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo leer el ticket." };
+  }
 }
 
 // Reemplaza el formulario de "Recepción en molino" (fecha + supervisor) que

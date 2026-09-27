@@ -72,3 +72,50 @@ export async function generateContent(params: {
 
   return { text: text || null, functionCalls, modelParts };
 }
+
+/**
+ * Llamada de un solo turno para leer un documento (foto o PDF de un ticket de
+ * balanza) y devolver campos estructurados — sin tools ni historial, solo
+ * imagen + esquema de salida. Separado de `generateContent` (que arma el chat
+ * del asistente) porque acá no hace falta esa maquinaria, solo extracción.
+ */
+export async function extractFromDocument<T>(params: {
+  prompt: string;
+  base64Data: string;
+  mimeType: string;
+  responseSchema: Record<string, unknown>;
+}): Promise<T> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "Falta GEMINI_API_KEY en .env.local. Conseguí una key gratis en aistudio.google.com y pegala ahí.",
+    );
+  }
+
+  const res = await fetch(`${API_BASE}/${MODEL}:generateContent?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: params.prompt }, { inlineData: { mimeType: params.mimeType, data: params.base64Data } }],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: params.responseSchema,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Gemini respondió ${res.status}: ${body.slice(0, 500)}`);
+  }
+
+  const json = await res.json();
+  const text: string | undefined = json.candidates?.[0]?.content?.parts?.find((p: { text?: string }) => p.text)?.text;
+  if (!text) throw new Error("Gemini no devolvió resultado.");
+  return JSON.parse(text) as T;
+}
