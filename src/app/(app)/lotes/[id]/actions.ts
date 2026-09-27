@@ -264,6 +264,97 @@ export async function extractWeighingTicket(
   }
 }
 
+export type LabAnalysisExtraction = {
+  lab_name: string | null;
+  report_number: string | null;
+  analyzed_at: string | null; // yyyy-MM-dd
+  au_gt: number | null;
+  ag_gt: number | null;
+  pb_pct: number | null;
+  as_pct: number | null;
+  sb_pct: number | null;
+  s_pct: number | null;
+  humidity_pct: number | null;
+};
+
+const LAB_ANALYSIS_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    lab_name: { type: "STRING", nullable: true, description: "Nombre del laboratorio que emite el informe." },
+    report_number: {
+      type: "STRING",
+      nullable: true,
+      description: "Nombre/código de la muestra o número de informe (ej. 'LT-2843').",
+    },
+    date: { type: "STRING", nullable: true, description: "Fecha de recepción/resultado en formato YYYY-MM-DD." },
+    au_gt: { type: "NUMBER", nullable: true, description: "Oro (Au) en g/tm." },
+    ag_gt: { type: "NUMBER", nullable: true, description: "Plata (Ag) en g/tm." },
+    pb_pct: { type: "NUMBER", nullable: true, description: "Plomo (Pb) en %." },
+    as_pct: { type: "NUMBER", nullable: true, description: "Arsénico (As) en %." },
+    sb_pct: { type: "NUMBER", nullable: true, description: "Antimonio (Sb) en %." },
+    s_pct: { type: "NUMBER", nullable: true, description: "Azufre (S) en %." },
+    humidity_pct: { type: "NUMBER", nullable: true, description: "Humedad (H2O) en %." },
+  },
+  required: ["lab_name", "report_number", "date", "au_gt", "ag_gt", "pb_pct", "as_pct", "sb_pct", "s_pct", "humidity_pct"],
+};
+
+const LAB_ANALYSIS_PROMPT =
+  "Esto es un informe o captura de pantalla de resultados de laboratorio de un laboratorio de minerales " +
+  "en Perú (columnas típicas: AG g/tm, AU g/tm, % PB, % AS, % SB, % S, % H2O, Nombre Muestra, Fecha de " +
+  "recepción). Si hay varias filas/muestras, usá la más reciente (o la única, si hay una sola). Extraé el " +
+  "nombre del laboratorio, el nombre de la muestra o N° de informe, la fecha, y los valores de ley. Si algún " +
+  "dato no aparece con claridad, devolvé null para ese campo — no inventes valores.";
+
+// Lee un informe/captura de resultados de laboratorio con Gemini y devuelve
+// los datos para prellenar el formulario de "Laboratorio" del lote — igual
+// que extractWeighingTicket, nunca guarda nada, el usuario revisa y confirma
+// (o corrige) antes de enviar.
+export async function extractLabAnalysis(
+  base64Data: string,
+  mimeType: string,
+): Promise<{ data: LabAnalysisExtraction } | { error: string }> {
+  const { profile } = await getCurrentUser();
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    return { error: "Tu rol no puede usar esta función." };
+  }
+
+  try {
+    const result = await extractFromDocument<{
+      lab_name: string | null;
+      report_number: string | null;
+      date: string | null;
+      au_gt: number | null;
+      ag_gt: number | null;
+      pb_pct: number | null;
+      as_pct: number | null;
+      sb_pct: number | null;
+      s_pct: number | null;
+      humidity_pct: number | null;
+    }>({
+      prompt: LAB_ANALYSIS_PROMPT,
+      base64Data,
+      mimeType,
+      responseSchema: LAB_ANALYSIS_SCHEMA,
+    });
+    return {
+      data: {
+        lab_name: result.lab_name,
+        report_number: result.report_number,
+        analyzed_at: result.date,
+        au_gt: result.au_gt,
+        ag_gt: result.ag_gt,
+        pb_pct: result.pb_pct,
+        as_pct: result.as_pct,
+        sb_pct: result.sb_pct,
+        s_pct: result.s_pct,
+        humidity_pct: result.humidity_pct,
+      },
+    };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo leer el informe." };
+  }
+}
+
 // Reemplaza el formulario de "Recepción en molino" (fecha + supervisor) que
 // el usuario pidió sacar — pero esta seguía siendo la única acción que
 // avanza el lote a "recibido_molino" (la columna "En el molino" del tablero

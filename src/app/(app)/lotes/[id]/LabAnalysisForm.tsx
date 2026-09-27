@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { createLabAnalysis, updateLabAnalysis, type LogisticsFormState } from "./actions";
+import { LabReportScanInput } from "@/components/LabReportScanInput";
 
 function toLocalInputValue(iso: string | null): string {
   if (!iso) return "";
@@ -25,6 +26,8 @@ type InitialValues = {
   notes: string | null;
 };
 
+const numStr = (n: number | null | undefined) => (n == null ? "" : String(n));
+
 export function LabAnalysisForm({
   lotId,
   analysisId,
@@ -46,8 +49,37 @@ export function LabAnalysisForm({
     prevPending.current = pending;
   }, [pending, state, onDone]);
 
+  // Controlados (en vez de defaultValue) para que la lectura del informe
+  // pueda prellenarlos — el usuario los sigue pudiendo editar a mano.
+  const [analyzedAt, setAnalyzedAt] = useState(toLocalInputValue(initialValues?.analyzed_at ?? null));
+  const [labName, setLabName] = useState(initialValues?.lab_name ?? "");
+  const [reportNumber, setReportNumber] = useState(initialValues?.report_number ?? "");
+  const [auGt, setAuGt] = useState(numStr(initialValues?.au_gt));
+  const [agGt, setAgGt] = useState(numStr(initialValues?.ag_gt));
+  const [pbPct, setPbPct] = useState(numStr(initialValues?.pb_pct));
+  const [asPct, setAsPct] = useState(numStr(initialValues?.as_pct));
+  const [sbPct, setSbPct] = useState(numStr(initialValues?.sb_pct));
+  const [sPct, setSPct] = useState(numStr(initialValues?.s_pct));
+  const [humidityPct, setHumidityPct] = useState(numStr(initialValues?.humidity_pct));
+
   return (
     <form action={action} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+      {!analysisId && (
+        <LabReportScanInput
+          onExtracted={(data) => {
+            if (data.lab_name) setLabName(data.lab_name);
+            if (data.report_number) setReportNumber(data.report_number);
+            if (data.analyzed_at) setAnalyzedAt(data.analyzed_at);
+            if (data.au_gt != null) setAuGt(String(data.au_gt));
+            if (data.ag_gt != null) setAgGt(String(data.ag_gt));
+            if (data.pb_pct != null) setPbPct(String(data.pb_pct));
+            if (data.as_pct != null) setAsPct(String(data.as_pct));
+            if (data.sb_pct != null) setSbPct(String(data.sb_pct));
+            if (data.s_pct != null) setSPct(String(data.s_pct));
+            if (data.humidity_pct != null) setHumidityPct(String(data.humidity_pct));
+          }}
+        />
+      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Fecha de muestreo</span>
@@ -63,17 +95,23 @@ export function LabAnalysisForm({
           <input
             name="analyzed_at"
             type="date"
-            defaultValue={toLocalInputValue(initialValues?.analyzed_at ?? null)}
+            value={analyzedAt}
+            onChange={(e) => setAnalyzedAt(e.target.value)}
             className={inputClass}
           />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Laboratorio</span>
-          <input name="lab_name" defaultValue={initialValues?.lab_name ?? ""} className={inputClass} />
+          <input name="lab_name" value={labName} onChange={(e) => setLabName(e.target.value)} className={inputClass} />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">N° de informe</span>
-          <input name="report_number" defaultValue={initialValues?.report_number ?? ""} className={inputClass} />
+          <input
+            name="report_number"
+            value={reportNumber}
+            onChange={(e) => setReportNumber(e.target.value)}
+            className={inputClass}
+          />
         </label>
       </div>
 
@@ -86,7 +124,8 @@ export function LabAnalysisForm({
               name="au_gt"
               type="number"
               step="0.001"
-              defaultValue={initialValues?.au_gt ?? ""}
+              value={auGt}
+              onChange={(e) => setAuGt(e.target.value)}
               className={inputClass}
             />
           </label>
@@ -96,7 +135,8 @@ export function LabAnalysisForm({
               name="ag_gt"
               type="number"
               step="0.001"
-              defaultValue={initialValues?.ag_gt ?? ""}
+              value={agGt}
+              onChange={(e) => setAgGt(e.target.value)}
               className={inputClass}
             />
           </label>
@@ -106,7 +146,8 @@ export function LabAnalysisForm({
               name="pb_pct"
               type="number"
               step="0.001"
-              defaultValue={initialValues?.pb_pct ?? ""}
+              value={pbPct}
+              onChange={(e) => setPbPct(e.target.value)}
               className={inputClass}
             />
           </label>
@@ -124,7 +165,8 @@ export function LabAnalysisForm({
               name="as_pct"
               type="number"
               step="0.001"
-              defaultValue={initialValues?.as_pct ?? ""}
+              value={asPct}
+              onChange={(e) => setAsPct(e.target.value)}
               className={inputClass}
             />
           </label>
@@ -134,7 +176,8 @@ export function LabAnalysisForm({
               name="sb_pct"
               type="number"
               step="0.001"
-              defaultValue={initialValues?.sb_pct ?? ""}
+              value={sbPct}
+              onChange={(e) => setSbPct(e.target.value)}
               className={inputClass}
             />
           </label>
@@ -144,7 +187,8 @@ export function LabAnalysisForm({
               name="s_pct"
               type="number"
               step="0.001"
-              defaultValue={initialValues?.s_pct ?? ""}
+              value={sPct}
+              onChange={(e) => setSPct(e.target.value)}
               className={inputClass}
             />
           </label>
@@ -154,7 +198,8 @@ export function LabAnalysisForm({
               name="humidity_pct"
               type="number"
               step="0.001"
-              defaultValue={initialValues?.humidity_pct ?? ""}
+              value={humidityPct}
+              onChange={(e) => setHumidityPct(e.target.value)}
               className={inputClass}
             />
           </label>
