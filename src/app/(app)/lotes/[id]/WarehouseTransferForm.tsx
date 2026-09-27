@@ -13,7 +13,6 @@ function toLocalInputValue(iso: string | null): string {
 }
 
 type InitialValues = {
-  forklift_cost_pen: number | null;
   dispatch_carrier: string | null;
   dispatch_truck_plate: string | null;
   departed_at: string | null;
@@ -51,16 +50,6 @@ export function WarehouseTransferForm({
         ))}
       </datalist>
       <div className="grid grid-cols-2 gap-3">
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Costo de montacarga (S/)</span>
-          <input
-            name="forklift_cost_pen"
-            type="number"
-            step="0.01"
-            defaultValue={initialValues?.forklift_cost_pen ?? ""}
-            className={inputClass}
-          />
-        </label>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-slate-500">Transportista</span>
           <select
@@ -118,6 +107,7 @@ export function WarehouseTransferForm({
           />
         </label>
       </div>
+      <p className="text-xs text-slate-400">El costo de montacarga es fijo: se suma solo al costo del lote.</p>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       <div className="flex items-center gap-3">
         <button

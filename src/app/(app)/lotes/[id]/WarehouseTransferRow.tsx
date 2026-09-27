@@ -9,7 +9,6 @@ const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("es-PE") :
 
 type Transfer = {
   id: string;
-  forklift_cost_pen: number | null;
   dispatch_carrier: string | null;
   dispatch_truck_plate: string | null;
   departed_at: string | null;
@@ -33,10 +32,9 @@ export function WarehouseTransferRow({ lotId, transfer }: { lotId: string; trans
           {transfer.dispatch_carrier ?? "Transportista sin datos"} · Salida{" "}
           {fmtDate(transfer.departed_at) ?? "sin fecha"} · Descarga {fmtDate(transfer.arrived_at) ?? "sin fecha"}
         </div>
-        <div className="text-xs text-slate-500">
-          {transfer.dispatch_truck_plate && `Placa ${transfer.dispatch_truck_plate} · `}
-          {transfer.forklift_cost_pen != null && `Montacarga S/ ${transfer.forklift_cost_pen}`}
-        </div>
+        {transfer.dispatch_truck_plate && (
+          <div className="text-xs text-slate-500">Placa {transfer.dispatch_truck_plate}</div>
+        )}
         {transfer.incidents && <div className="text-xs text-amber-700">Incidente: {transfer.incidents}</div>}
       </div>
       <div className="flex items-center gap-3">

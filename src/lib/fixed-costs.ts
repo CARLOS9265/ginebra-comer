@@ -6,3 +6,7 @@
 // guardados conservan el monto con el que se registraron.
 export const TRANSPORT_TARIFF_PEN_PER_TMH = 212;
 export const TRANSPORT_SECURITY_COST_PEN = 1350;
+
+// Traslado a almacén (Huanchaco): costo de montacarga fijo por lote — no se
+// carga a mano, se aplica solo al registrar el traslado.
+export const FORKLIFT_COST_PEN = 500;

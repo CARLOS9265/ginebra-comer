@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { LOT_STATUS_ORDER, type LotStatus } from "@/lib/lot-status";
 import { estimateLot, type ContractSettings } from "@/lib/contract";
-import { TRANSPORT_TARIFF_PEN_PER_TMH, TRANSPORT_SECURITY_COST_PEN } from "@/lib/fixed-costs";
+import { TRANSPORT_TARIFF_PEN_PER_TMH, TRANSPORT_SECURITY_COST_PEN, FORKLIFT_COST_PEN } from "@/lib/fixed-costs";
 import { extractFromDocument } from "@/lib/assistant/gemini";
 
 export type LogisticsFormState = { error?: string } | null;
@@ -857,7 +857,9 @@ export async function createWarehouseTransfer(
   const supabase = await createClient();
   const { error } = await supabase.from("warehouse_transfers").insert({
     purchase_lot_id: lotId,
-    forklift_cost_pen: num(formData, "forklift_cost_pen"),
+    // Fijo: no se carga a mano, pero queda guardado para que /margenes lo
+    // siga sumando al gasto operativo.
+    forklift_cost_pen: FORKLIFT_COST_PEN,
     dispatch_carrier: str(formData, "dispatch_carrier") || null,
     dispatch_truck_plate: str(formData, "dispatch_truck_plate") || null,
     departed_at: str(formData, "departed_at") ? new Date(str(formData, "departed_at")).toISOString() : null,
@@ -889,7 +891,6 @@ export async function updateWarehouseTransfer(
   const { error } = await supabase
     .from("warehouse_transfers")
     .update({
-      forklift_cost_pen: num(formData, "forklift_cost_pen"),
       dispatch_carrier: str(formData, "dispatch_carrier") || null,
       dispatch_truck_plate: str(formData, "dispatch_truck_plate") || null,
       departed_at: str(formData, "departed_at") ? new Date(str(formData, "departed_at")).toISOString() : null,
