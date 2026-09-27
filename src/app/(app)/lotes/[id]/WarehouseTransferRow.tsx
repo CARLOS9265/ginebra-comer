@@ -12,8 +12,6 @@ type Transfer = {
   dispatch_carrier: string | null;
   dispatch_truck_plate: string | null;
   departed_at: string | null;
-  arrived_at: string | null;
-  incidents: string | null;
 };
 
 export function WarehouseTransferRow({ lotId, transfer }: { lotId: string; transfer: Transfer }) {
@@ -29,13 +27,11 @@ export function WarehouseTransferRow({ lotId, transfer }: { lotId: string; trans
     <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm">
       <div className="space-y-0.5 text-slate-400">
         <div>
-          {transfer.dispatch_carrier ?? "Transportista sin datos"} · Salida{" "}
-          {fmtDate(transfer.departed_at) ?? "sin fecha"} · Descarga {fmtDate(transfer.arrived_at) ?? "sin fecha"}
+          {transfer.dispatch_carrier ?? "Transportista sin datos"} · {fmtDate(transfer.departed_at) ?? "sin fecha"}
         </div>
         {transfer.dispatch_truck_plate && (
           <div className="text-xs text-slate-500">Placa {transfer.dispatch_truck_plate}</div>
         )}
-        {transfer.incidents && <div className="text-xs text-amber-700">Incidente: {transfer.incidents}</div>}
       </div>
       <div className="flex items-center gap-3">
         <button onClick={() => setEditing(true)} className="text-xs text-gold-700 hover:underline">

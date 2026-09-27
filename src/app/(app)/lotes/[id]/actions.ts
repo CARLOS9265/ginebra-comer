@@ -863,8 +863,6 @@ export async function createWarehouseTransfer(
     dispatch_carrier: str(formData, "dispatch_carrier") || null,
     dispatch_truck_plate: str(formData, "dispatch_truck_plate") || null,
     departed_at: str(formData, "departed_at") ? new Date(str(formData, "departed_at")).toISOString() : null,
-    arrived_at: str(formData, "arrived_at") ? new Date(str(formData, "arrived_at")).toISOString() : null,
-    incidents: str(formData, "incidents") || null,
     created_by: profile.id,
   });
 
@@ -894,8 +892,6 @@ export async function updateWarehouseTransfer(
       dispatch_carrier: str(formData, "dispatch_carrier") || null,
       dispatch_truck_plate: str(formData, "dispatch_truck_plate") || null,
       departed_at: str(formData, "departed_at") ? new Date(str(formData, "departed_at")).toISOString() : null,
-      arrived_at: str(formData, "arrived_at") ? new Date(str(formData, "arrived_at")).toISOString() : null,
-      incidents: str(formData, "incidents") || null,
     })
     .eq("id", transferId);
 

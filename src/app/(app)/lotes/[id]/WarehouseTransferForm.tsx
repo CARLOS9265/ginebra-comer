@@ -16,8 +16,6 @@ type InitialValues = {
   dispatch_carrier: string | null;
   dispatch_truck_plate: string | null;
   departed_at: string | null;
-  arrived_at: string | null;
-  incidents: string | null;
 };
 
 export function WarehouseTransferForm({
@@ -80,30 +78,12 @@ export function WarehouseTransferForm({
           />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Salida del molino</span>
+          <span className="mb-1.5 block text-xs font-medium text-slate-500">Fecha</span>
           <input
             name="departed_at"
             type="date"
             defaultValue={toLocalInputValue(initialValues?.departed_at ?? null)}
             className={inputClass}
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Descarga en almacén</span>
-          <input
-            name="arrived_at"
-            type="date"
-            defaultValue={toLocalInputValue(initialValues?.arrived_at ?? null)}
-            className={inputClass}
-          />
-        </label>
-        <label className="col-span-2 block">
-          <span className="mb-1.5 block text-xs font-medium text-slate-500">Incidentes</span>
-          <textarea
-            name="incidents"
-            rows={2}
-            defaultValue={initialValues?.incidents ?? ""}
-            className={`${inputClass} resize-none`}
           />
         </label>
       </div>
