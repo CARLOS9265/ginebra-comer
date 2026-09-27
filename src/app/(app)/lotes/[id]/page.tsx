@@ -256,14 +256,15 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       <Section title="Transporte">
-        {events && events.length > 0 && (
-          <div className="mb-4 space-y-2">
+        {events && events.length > 0 ? (
+          <div className="space-y-2">
             {events.map((e) => (
               <TransportEventRow key={e.id} lotId={lot.id} event={e} />
             ))}
           </div>
+        ) : (
+          <TransportForm lotId={lot.id} defaultCarrier={lot.carrier_name ?? undefined} />
         )}
-        <TransportForm lotId={lot.id} defaultCarrier={lot.carrier_name ?? undefined} />
       </Section>
 
       <Section title="Pesajes (balanza Trujillo)">
